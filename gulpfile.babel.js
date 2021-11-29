@@ -16,10 +16,10 @@ function watchGlobs() {
   let json_content = readFileSync(`${__dirname}/${filename}`, "UTF-8");
   let yaml_content = yamlLoad(json_content);
   let dirs = yaml_content.content.sources.map(source => [
-    `${source.url}/**/**.yml`,
-    `${source.url}/**/**.adoc`,
-    `${source.url}/**/**.hbs`
-  ]); 
+    `**/*.yml`,
+    `**/*.adoc`,
+    `**/*.hbs`
+  ]);
   dirs.push(["${filename}"]);
   dirs = [].concat(...dirs);
   //console.log(dirs);
