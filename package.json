@@ -26,7 +26,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/redhat-scholars/openshift-apps-resource-management"
+    "url": "git+https://github.com/redhat-scholars/openshift-apps-resource-management.git"
   },
   "license": "Apache-2.0",
   "babel": {
