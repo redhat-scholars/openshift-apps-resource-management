@@ -2,7 +2,7 @@ runtime:
   cache_dir: ./.cache/antora
 
 site:
-  title: Efficient Resource Management with OpenShift(Dev Mode)
+  title: Efficient Resource Management with OpenShift
   url: http://localhost:3000/openshift-apps-resource-management/index.html
   start_page: openshift-apps-resource-management::index.adoc
 
