@@ -3,5 +3,4 @@ title:  Efficient Resource Management with OpenShift
 version: master
 nav:
   - modules/ROOT/nav.adoc
-
 start_page: ROOT:index.adoc
