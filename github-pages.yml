@@ -3,22 +3,18 @@ runtime:
 
 site:
   title: Efficient Resource Management with OpenShift
-  url: https://redhat-developer-demos.github.io/openshift-apps-resource-management
+  url: https://redhat-scholars.github.io/openshift-apps-resource-management
   start_page: openshift-apps-resource-management::index.adoc
 
 content:
-  sources:
-    - url: ./
-      start_path: documentation
-
+  - url: ./
+    start_path: documentation
 asciidoc:
   attributes:
-    tutorial-namespace: helm-tutorial
     quarkus-version: 2.4.2.Final
     graalvm-version: 21.3.0
     project-name: tutorial-app
     page-pagination: true
-    page-hide-versions-component: true
   extensions:
     - ./lib/tab-block.js
     - ./lib/remote-include-processor.js
