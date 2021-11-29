@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>Untitled :: Efficient Resource Management with OpenShift</title>
+    <title>Define custom health checks :: Efficient Resource Management with OpenShift</title>
     <link rel="canonical" href="https://redhat-scholars.github.io/openshift-apps-resource-management/openshift-apps-resource-management/health.html">
     <link rel="prev" href="configuration.html">
     <link rel="next" href="openshift.html">
@@ -62,10 +62,13 @@
   </li>
   <li class="nav-item" data-depth="1">
     <button class="nav-item-toggle"></button>
-    <a class="nav-link" href="configuration.html">Development Practices</a>
+    <a class="nav-link" href="starter.html">Development Practices</a>
 <ul class="nav-list">
   <li class="nav-item" data-depth="2">
-    <a class="nav-link" href="configuration.html">Configuration</a>
+    <a class="nav-link" href="starter.html">Bootstrap project</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="configuration.html">Adapt configurations</a>
   </li>
   <li class="nav-item is-current-page" data-depth="2">
     <a class="nav-link" href="health.html">Define custom health checks</a>
@@ -99,7 +102,7 @@
 <nav class="breadcrumbs" aria-label="breadcrumbs">
   <ul>
     <li><a href="index.html">Efficient Resource Management with OpenShift</a></li>
-    <li><a href="configuration.html">Development Practices</a></li>
+    <li><a href="starter.html">Development Practices</a></li>
     <li><a href="health.html">Define custom health checks</a></li>
   </ul>
 </nav>
@@ -107,9 +110,193 @@
   </div>
   <div class="content">
 <article class="doc">
+<h1 class="page">Define custom health checks</h1>
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph">
+<p>While you coded the database configuration in the previous exercise, Quarkus has generated Kubernetes and OpenShift resources in <code>target/kubernetes</code>:</p>
+</div>
+<div class="listingblock console-input">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-config hljs" data-lang="config">target/kubernetes
+|-- kubernetes.json
+|-- kubernetes.yml
+|-- openshift.json
+`-- openshift.yml</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Inspect their content and observe that you already have a base for your Kubernetes deployment.
+But before doing that, let&#8217;s implement custom health checks.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_add_the_health_monitoring_extension"><a class="anchor" href="#_add_the_health_monitoring_extension"></a>Add the health monitoring extension</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>In the terminal window please execute the following command
+:</p>
+</div>
+<div class="listingblock console-input">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-config hljs" data-lang="config">./mvnw quarkus:add-extension -Dextensions="io.quarkus:quarkus-smallrye-health"</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>If you did not stop DevMode and inspect again <code>target/kubernetes/kubernetes.yml</code> or <code>target/kubernetes/openshift.yml</code>
+will notice that it had changed. Your Deployment/DeploymentConfig resource will contain a few lines like to:</p>
+</div>
+<div class="listingblock console-input">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-config hljs" data-lang="config">          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /q/health/live
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 0
+            periodSeconds: 30
+            successThreshold: 1
+            timeoutSeconds: 10
+          name: tutorial-app
+          ports:
+            - containerPort: 8080
+              name: http
+              protocol: TCP
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /q/health/ready
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 0
+            periodSeconds: 30
+            successThreshold: 1
+            timeoutSeconds: 10</code></pre>
+</div>
+</div>
+<div class="admonitionblock tip">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-tip" title="Tip"></i>
+</td>
+<td class="content">
+You can access these endpoints also in your local at <a href="http://localhost:8080/q/health/ready" class="bare">http://localhost:8080/q/health/ready</a> or <a href="http://localhost:8080/q/health/live" class="bare">http://localhost:8080/q/health/live</a>.
+</td>
+</tr>
+</table>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_customize_health_endpoints_and_readiness_probe"><a class="anchor" href="#_customize_health_endpoints_and_readiness_probe"></a>Customize health endpoints and readiness probe</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>You can change the root path to the health endpoints by setting the following property in <code>src/main/resources/application.properties</code>:</p>
+</div>
+<div class="listingblock console-input">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-config hljs" data-lang="config">quarkus.smallrye-health.root-path=/health</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>If you reload the context in DevMode (by pressing <code>s</code>), you would notice that your Kubernetes/OpenShift manifests have changed and take into account your new configuration.</p>
+</div>
+<div class="paragraph">
+<p>Since the application is connecting to a database, we can asses if that dependency is ready by customizing the readiness probe.</p>
+</div>
+<div class="listingblock console-input">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">package com.redhat.developers;
 
+import io.agroal.api.AgroalDataSource;
+import org.eclipse.microprofile.health.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import javax.enterprise.context.ApplicationScoped;
+import javax.inject.Inject;
+import java.sql.SQLException;
+
+@Readiness <i class="conum" data-value="1"></i><b>(1)</b>
+@ApplicationScoped
+public class DatabaseConnectionHealthCheck implements HealthCheck {
+static Logger LOG = LoggerFactory.getLogger(DatabaseConnectionHealthCheck.class);
+
+    @Inject
+    AgroalDataSource defaultDataSource; <i class="conum" data-value="2"></i><b>(2)</b>
+
+    @Override
+    public HealthCheckResponse call() {
+
+        HealthCheckResponseBuilder responseBuilder = HealthCheckResponse.named("Health check"); <i class="conum" data-value="3"></i><b>(3)</b>
+        try {
+            responseBuilder.withData("database connection exists", simulateDatabaseConnectionVerification()).up(); <i class="conum" data-value="4"></i><b>(4)</b>
+        } catch (IllegalStateException e) {
+            LOG.error("Unable to reach database", e);
+            responseBuilder.down(); <i class="conum" data-value="5"></i><b>(5)</b>
+        }
+
+        return responseBuilder.build(); <i class="conum" data-value="6"></i><b>(6)</b>
+    }
+
+    private boolean simulateDatabaseConnectionVerification() throws IllegalStateException {
+        try {
+            return !defaultDataSource.getConnection().getClientInfo().isEmpty();
+        } catch (SQLException e) {
+            LOG.error("Unable to reach datasource due to exception", e);
+            throw new IllegalStateException("Cannot contact database");
+        }
+    }
+}</code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>Annotate the class with <code>org.eclipse.microprofile.health.Readiness</code> to signal its implementation.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>Inject the datasource that relates to the definition of your database.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="3"></i><b>3</b></td>
+<td>Offer a custom name to <code>HealthCheckResponseBuilder</code>.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="4"></i><b>4</b></td>
+<td>If the custom check returns a valid response, the health probe succeeded.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="5"></i><b>5</b></td>
+<td>If something is wrong with the given database connection, an exception will be thrown and we signal that the probe failed.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="6"></i><b>6</b></td>
+<td>Build the response.</td>
+</tr>
+</table>
+</div>
+<div class="admonitionblock tip">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-tip" title="Tip"></i>
+</td>
+<td class="content">
+You can also check your implementation in health ui: <a href="http://localhost:8080/q/health-ui/" class="bare">http://localhost:8080/q/health-ui/</a>
+</td>
+</tr>
+</table>
+</div>
+</div>
+</div>
 <nav class="pagination">
-  <span class="prev"><a href="configuration.html">Development Practices</a></span>
+  <span class="prev"><a href="configuration.html">Adapt configurations</a></span>
   <span class="next"><a href="openshift.html">Deploy to OpenShift</a></span>
 </nav>
 </article>

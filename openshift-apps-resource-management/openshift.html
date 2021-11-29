@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>Untitled :: Efficient Resource Management with OpenShift</title>
+    <title>Deploy to OpenShift :: Efficient Resource Management with OpenShift</title>
     <link rel="canonical" href="https://redhat-scholars.github.io/openshift-apps-resource-management/openshift-apps-resource-management/openshift.html">
     <link rel="prev" href="health.html">
     <link rel="next" href="resources.html">
@@ -62,10 +62,13 @@
   </li>
   <li class="nav-item" data-depth="1">
     <button class="nav-item-toggle"></button>
-    <a class="nav-link" href="configuration.html">Development Practices</a>
+    <a class="nav-link" href="starter.html">Development Practices</a>
 <ul class="nav-list">
   <li class="nav-item" data-depth="2">
-    <a class="nav-link" href="configuration.html">Configuration</a>
+    <a class="nav-link" href="starter.html">Bootstrap project</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="configuration.html">Adapt configurations</a>
   </li>
   <li class="nav-item" data-depth="2">
     <a class="nav-link" href="health.html">Define custom health checks</a>
@@ -99,7 +102,7 @@
 <nav class="breadcrumbs" aria-label="breadcrumbs">
   <ul>
     <li><a href="index.html">Efficient Resource Management with OpenShift</a></li>
-    <li><a href="configuration.html">Development Practices</a></li>
+    <li><a href="starter.html">Development Practices</a></li>
     <li><a href="openshift.html">Deploy to OpenShift</a></li>
   </ul>
 </nav>
@@ -107,7 +110,172 @@
   </div>
   <div class="content">
 <article class="doc">
+<h1 class="page">Deploy to OpenShift</h1>
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph">
+<p>Our examples will be using the <code>quay.io</code> container registry and the <code>myrepo</code> organization, but you should change it to match your configuration.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_adding_the_kubernetes_and_jib_extensions"><a class="anchor" href="#_adding_the_kubernetes_and_jib_extensions"></a>Adding the Kubernetes and Jib extensions</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>You need a container registry that is accessible from your Kubernetes cluster to deploy the application container image in it.</p>
+</div>
+<div class="paragraph">
+<p>In this chapter we&#8217;ll be using the Quarkus OpenShift Extension to create the OpenShift deployment file, and the Quarkus Jib Extension to create and push the container image to your container registry without the need of running local docker daemon.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_adding_the_configuration_properties"><a class="anchor" href="#_adding_the_configuration_properties"></a>Adding the configuration properties</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Add the following properties to your <code>application.properties</code> so that can push the container to correct location:</p>
+</div>
+<div class="listingblock console-input">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-properties hljs" data-lang="properties"># Configuration file
+# key = value
+#quarkus.container-image.push=true <i class="conum" data-value="1"></i><b>(1)</b>
 
+quarkus.container-image.registry=quay.io <i class="conum" data-value="2"></i><b>(2)</b>
+quarkus.container-image.group=myrepo <i class="conum" data-value="3"></i><b>(3)</b>
+quarkus.container-image.name=greeting-app <i class="conum" data-value="4"></i><b>(4)</b>
+quarkus.container-image.tag=1.0-SNAPSHOT <i class="conum" data-value="5"></i><b>(5)</b>
+
+quarkus.kubernetes.service-type=load-balancer <i class="conum" data-value="6"></i><b>(6)</b>
+#quarkus.kubernetes.deploy=true
+quarkus.openshift.route.expose=true <i class="conum" data-value="7"></i><b>(7)</b></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>Push the image automatically when application is packaged.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>Registry where image is pushed. By default is docker hub.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="3"></i><b>3</b></td>
+<td>Group name of the conatiner image.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="4"></i><b>4</b></td>
+<td>Container name. By default is the <code>artifactId</code> element of <code>pom.xml</code>.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="5"></i><b>5</b></td>
+<td>Tag of the container image. By default is the <code>version</code> element of <code>pom.xml</code>.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="6"></i><b>6</b></td>
+<td>The Service type should be load-balancer</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="7"></i><b>7</b></td>
+<td>Ask for OpenShift route configuration as well when the application is deployed.</td>
+</tr>
+</table>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+Change <code>quay.io</code> to your container registry and <code>myrepo</code> to your organization.
+If you don&#8217;t, your push <strong>will</strong> fail.
+</td>
+</tr>
+</table>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_authenticating_and_pushing_the_image_to_your_container_registry"><a class="anchor" href="#_authenticating_and_pushing_the_image_to_your_container_registry"></a>Authenticating and pushing the image to your container registry</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>In order to push the container image, you need to authenticate to your container registry:</p>
+</div>
+<div class="listingblock console-input">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">docker login quay.io</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Now create and push your container image using jib:</p>
+</div>
+<div class="listingblock console-input">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">./mvnw clean package -DskipTests -Dquarkus.container-image.push=true</code></pre>
+</div>
+</div>
+<div class="listingblock console-output">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-text hljs" data-lang="text">[INFO] [io.quarkus.container.image.jib.deployment.JibProcessor] Using base image with digest: sha256:b459cc59d6c7ddc9fd52f981fc4c187f44a401f2433a1b4110810d2dd9e98a07
+[INFO] [io.quarkus.container.image.jib.deployment.JibProcessor] Container entrypoint set to [java, -Dquarkus.http.host=0.0.0.0, -Djava.util.logging.manager=org.jboss.logmanager.LogManager, -cp, /app/resources:/app/classes:/app/libs/*, io.quarkus.runner.GeneratedMain]
+[INFO] [io.quarkus.container.image.jib.deployment.JibProcessor] Pushed container image quay.io/myrepo/tutorial-app:1.0-SNAPSHOT (sha256:6651a2f85f8f53ef951b3398d00f1c7da73bd0e8b21f87584d5a1c0e99aae12c)
+
+[INFO] [io.quarkus.deployment.QuarkusAugmentor] Quarkus augmentation completed in 14804ms
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  20.431 s
+[INFO] Finished at: 2020-05-11T00:05:25-04:00
+[INFO] ------------------------------------------------------------------------</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_deploy_your_application_to_your_developer_sandbox"><a class="anchor" href="#_deploy_your_application_to_your_developer_sandbox"></a>Deploy your application to your Developer Sandbox</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>When OpenShift extension is present in the classpath, a OpenShift deployment file is scaffolded for you during package phase.</p>
+</div>
+<div class="listingblock console-input">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">oc apply -f target/kubernetes/openshift.yml</code></pre>
+</div>
+</div>
+<div class="listingblock console-output">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-text hljs" data-lang="text">service/greeting-app configured
+imagestream.image.openshift.io/greeting-app configured
+deploymentconfig.apps.openshift.io/greeting-app configured
+route.route.openshift.io/greeting-app configured</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>You might need to wait for some seconds until your application is up and running.
+Access the service via the OpenShift route created automatically:</p>
+</div>
+<div class="listingblock console-output">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">oc get route greeting-app</code></pre>
+</div>
+</div>
+<div class="admonitionblock tip">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-tip" title="Tip"></i>
+</td>
+<td class="content">
+You can build, push and deploy the container image by running: <code>./mvnw clean package -Dquarkus.kubernetes.deploy=true</code>
+</td>
+</tr>
+</table>
+</div>
+</div>
+</div>
 <nav class="pagination">
   <span class="prev"><a href="health.html">Define custom health checks</a></span>
   <span class="next"><a href="resources.html">Adjust resource quotas</a></span>

@@ -3,9 +3,9 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>Untitled :: Efficient Resource Management with OpenShift</title>
+    <title>Adapt configurations :: Efficient Resource Management with OpenShift</title>
     <link rel="canonical" href="https://redhat-scholars.github.io/openshift-apps-resource-management/openshift-apps-resource-management/configuration.html">
-    <link rel="prev" href="setup.html">
+    <link rel="prev" href="starter.html">
     <link rel="next" href="health.html">
     <meta name="generator" content="Antora 2.3.1">
     <link rel="stylesheet" href="../_/css/site.css">
@@ -60,12 +60,15 @@
   </li>
 </ul>
   </li>
-  <li class="nav-item is-current-page" data-depth="1">
+  <li class="nav-item" data-depth="1">
     <button class="nav-item-toggle"></button>
-    <a class="nav-link" href="configuration.html">Development Practices</a>
+    <a class="nav-link" href="starter.html">Development Practices</a>
 <ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="starter.html">Bootstrap project</a>
+  </li>
   <li class="nav-item is-current-page" data-depth="2">
-    <a class="nav-link" href="configuration.html">Configuration</a>
+    <a class="nav-link" href="configuration.html">Adapt configurations</a>
   </li>
   <li class="nav-item" data-depth="2">
     <a class="nav-link" href="health.html">Define custom health checks</a>
@@ -99,16 +102,292 @@
 <nav class="breadcrumbs" aria-label="breadcrumbs">
   <ul>
     <li><a href="index.html">Efficient Resource Management with OpenShift</a></li>
-    <li><a href="configuration.html">Development Practices</a></li>
+    <li><a href="starter.html">Development Practices</a></li>
+    <li><a href="configuration.html">Adapt configurations</a></li>
   </ul>
 </nav>
   <div class="edit-this-page"><a href="https://github.com/redhat-scholars/openshift-apps-resource-management/edit/master/documentation/modules/ROOT/pages/configuration.adoc">Edit this Page</a></div>
   </div>
   <div class="content">
 <article class="doc">
+<h1 class="page">Adapt configurations</h1>
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph">
+<p>Now that we benefit from the developer experience given by Quarkus, let&#8217;s adapt the application code per requirements specified initially.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_create_message_entity"><a class="anchor" href="#_create_message_entity"></a>Create Message Entity</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Create a new <code>Message</code> Java class in <code>src/main/java</code> in the <code>com.redhat.developers</code> package with the following contents:</p>
+</div>
+<div class="listingblock console-input">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">package com.redhat.developers;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+import io.quarkus.hibernate.orm.panache.PanacheEntity;
+
+import javax.persistence.Entity;
+
+@Entity
+@JsonInclude(JsonInclude.Include.NON_NULL)
+public class Message extends PanacheEntity {
+
+    private String content;
+
+    private String language;
+
+    private String country;
+
+    public String getContent() {
+        return content;
+    }
+
+    public void setContent(String content) {
+        this.content = content;
+    }
+
+    public String getLanguage() {
+        return language;
+    }
+
+    public void setLanguage(String language) {
+        this.language = language;
+    }
+
+    public String getCountry() {
+        return country;
+    }
+
+    public void setCountry(String country) {
+        this.country = country;
+    }
+}</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Notice that we&#8217;re not providing an <code>@Id</code>, nor we&#8217;re creating the getters and setters. Don&#8217;t worry. It&#8217;s a <strong>Panache</strong> feature. By extending <code>PanacheEntity</code>, we&#8217;re using the <em>Active Record</em> persistence pattern instead of a <em>DAO</em>. This means that all persistence methods are blended with our own <code>Entity</code>.</p>
+</div>
+<div class="sidebarblock">
+<div class="content">
+<div class="paragraph">
+<p><strong>What is Panache ?</strong></p>
+</div>
+<div class="paragraph">
+<p>Hibernate ORM is the de facto JPA implementation and offers you the full breadth of an Object Relational Mapper. It makes complex mappings possible, but it does not make simple and common mappings trivial. Hibernate ORM with Panache focuses on making your entities trivial and fun to write in Quarkus.</p>
+</div>
+<div class="paragraph">
+<p>Fore more information please refer to the <a href="https://quarkus.io/guides/hibernate-orm-panache-guide" target="_blank" rel="noopener">Panache Guide</a></p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_modify_greetingresource"><a class="anchor" href="#_modify_greetingresource"></a>Modify GreetingResource</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>As we want to interact more with our application, let&#8217;s change the behavior of the GET endpoint and add a new endpoint that supports POST.</p>
+</div>
+<div class="listingblock console-input">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">package com.redhat.developers;
+
+import javax.transaction.Transactional;
+import javax.ws.rs.*;
+import javax.ws.rs.core.MediaType;
+import java.util.List;
+
+@Path("messages")
+public class GreetingResource {
+
+    @POST
+    @Produces(MediaType.APPLICATION_JSON)
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Transactional
+    public Message create(Message message) {
+         Message.persist(message);
+         return message;
+    }
+
+    @GET
+    @Produces(MediaType.APPLICATION_JSON)
+    public List&lt;Message&gt; findAll() {
+        return Message.findAll().list();
+    }
+
+}</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_modify_greetingresourcetest"><a class="anchor" href="#_modify_greetingresourcetest"></a>Modify GreetingResourceTest</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Since Dev mode is enabled and if you pressed <code>r</code> to run ContinuousTesting, you will also a test failure.
+To fix the test failure, modify <code>GreetingResourceTest</code> as follows:</p>
+</div>
+<div class="listingblock console-input">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">package com.redhat.developers;
+
+import io.quarkus.test.junit.QuarkusTest;
+import io.restassured.http.ContentType;
+import org.junit.jupiter.api.Test;
+
+import static io.restassured.RestAssured.given;
+import static org.hamcrest.CoreMatchers.notNullValue;
+
+@QuarkusTest
+public class GreetingResourceTest {
+
+    @Test
+    public void testCreate() {
+        Message message = new Message();
+        given().contentType(ContentType.JSON).body(message)
+                .when().post("/messages")
+                .then()
+                .statusCode(200)
+                .body(notNullValue());
+    }
+
+}</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_zero_config_database_setup"><a class="anchor" href="#_zero_config_database_setup"></a>Zero Config Database Setup</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Quarkus can even provide you with a zero-config database out of the box when testing or running in dev mode, a feature we refer to as Dev Services. Depending on your database type, you may need Docker installed to use this feature.</p>
+</div>
+<div class="paragraph">
+<p>To use Dev Services, all you need to do is include the relevant extension for the type of database you want (either reactive or JDBC, or both), without configuring any database URL, username, and password.</p>
+</div>
+<div class="paragraph">
+<p>Quarkus will provide the database. You can just start coding without worrying about config.</p>
+</div>
+<div class="admonitionblock tip">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-tip" title="Tip"></i>
+</td>
+<td class="content">
+If you are using a proprietary database such as <code>DB2</code> or <code>MSSQL</code> you will need to accept the license agreement. To do this create a <code>src/main/resources/container-license-acceptance.txt</code> file in your project and add a line with the image name and tag of the database.
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>More on zero config setup of datasources can be found <a href="https://quarkus.io/guides/datasource#dev-services">here</a>.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+Dev Services are enabled by default, but you can disable them by going to <code>application.properties</code> and setting <code>quarkus.datasource.devservices.enabled</code> to <code>false</code>.
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>Add the following database properties to your <code>application.properties</code> so that it looks like:</p>
+</div>
+<div id="quarkuspdb-update-props" class="listingblock console-input">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-config hljs" data-lang="config"># Configuration file
+# key = value
+quarkus.datasource.db-kind = postgresql <i class="conum" data-value="1"></i><b>(1)</b>
+quarkus.container-image.builder=jib
+quarkus.hibernate-orm.sql-load-script=import.sql <i class="conum" data-value="2"></i><b>(2)</b>
+quarkus.hibernate-orm.database.generation = drop-and-create
+
+%dev.quarkus.hibernate-orm.log.sql=true
+%dev.quarkus.hibernate-orm.log.bind-param=true
+
+%prod.quarkus.datasource.db-kind = postgresql
+%prod.quarkus.datasource.username = ${POSTGRES_USERNAME:postgres} <i class="conum" data-value="3"></i><b>(3)</b>
+%prod.quarkus.datasource.password = ${POSTGRES_PASSWORD:postgres}
+%prod.quarkus.datasource.jdbc.url = jdbc:postgresql://${POSTGRES_SERVER:postgres}:5432/postgres
+%prod.quarkus.hibernate-orm.log.sql = false</code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>With <a href="#_zero_config_database_setup">Dev Services</a> enabled, no JDBC URL needs to be provided in Dev Mode. In this case, we input the URL to ensure consistency across all application run modes.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>You can specify an sql script to initialize your database. You can even have it defined per application profile (by appending application profile to its name).</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="3"></i><b>3</b></td>
+<td>Only for prod application profile the database credentials are needed.</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>Create <code>import.sql</code> file in <code>src/main/resources</code> with the following content:</p>
+</div>
+<div class="listingblock console-input">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-sql hljs" data-lang="sql">insert into Message(content, country, language, id) values('Hello', 'United Kingdom', 'English', nextval('hibernate_sequence'));
+insert into Message(content, country, language, id) values('Hola', 'Spain', 'Spanish', nextval('hibernate_sequence'));
+insert into Message(content, country, language, id) values('Salut', 'Romania', 'Romanian', nextval('hibernate_sequence'));
+insert into Message(content, country, language, id) values('Bonjour', 'France', 'French', nextval('hibernate_sequence'));</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_create_your_database_setup_in_developer_sandbox"><a class="anchor" href="#_create_your_database_setup_in_developer_sandbox"></a>Create your database setup in Developer Sandbox</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>In order to setup your production database in <a href="https://developers.redhat.com/developer-sandbox/get-started">Developer Sandbox</a>, please do the following steps:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>click on <code>+Add</code> from the left hand side menu</p>
+</li>
+<li>
+<p>select <code>Database</code> from <code>Developer Catalog</code> and afterwards <code>PostgreSQL (Ephemeral)</code></p>
+</li>
+</ul>
+</div>
+<div class="imageblock text-center mt-4 center">
+<div class="content">
+<img src="_images/postgresql.png" alt="Database" width="400" height="400">
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>click on <code>Instantiate template</code> button and fill in the following details:</p>
+</li>
+</ul>
+</div>
+<div class="imageblock text-center mt-4 center">
+<div class="content">
+<img src="_images/template.png" alt="Database" width="400" height="400">
+</div>
+</div>
+</div>
+</div>
 <nav class="pagination">
-  <span class="prev"><a href="setup.html">Requirements</a></span>
+  <span class="prev"><a href="starter.html">Development Practices</a></span>
   <span class="next"><a href="health.html">Define custom health checks</a></span>
 </nav>
 </article>
