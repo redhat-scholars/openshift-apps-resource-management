@@ -1,7 +1,12 @@
-* xref:01-setup.adoc[1. Setup]
-** xref:01-setup.adoc#prerequisite[Prerequisites]
-** xref:01-setup.adoc#minikube[Setup Minikube]
+* xref:setup.adoc[Requirements]
+** xref:setup.adoc[Setup]
 
-* xref:02-deploy.adoc[2. Deploy Service]
-** xref:02-deploy.adoc#package[Build Service]
-** xref:02-deploy.adoc#deploy[Deploy Dervice]
+* xref:configuration.adoc[Development Practices]
+** xref:configuration.adoc[Configuration]
+** xref:health.adoc[Define custom health checks]
+** xref:openshift.adoc[Deploy to OpenShift]
+** xref:resources.adoc[Adjust resource quotas]
+** xref:separate.adoc[Separate configuration concerns]
+** xref:metrics.adoc[Tailor metrics]
+
+

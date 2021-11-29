@@ -1,5 +1,5 @@
-name: template-tutorial
-title: Template Tutorial
+name: openshift-apps-resource-management
+title:  Efficient Resource Management with OpenShift
 version: master
 nav:
   - modules/ROOT/nav.adoc

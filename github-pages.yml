@@ -2,33 +2,34 @@ runtime:
   cache_dir: ./.cache/antora
 
 site:
-  title: Efficient Resource Management with OpenShift(Dev Mode)
-  url: http://localhost:3000/openshift-apps-resource-management/index.html
+  title: Efficient Resource Management with OpenShift
+  url: https://redhat-developer-demos.github.io/openshift-apps-resource-management
   start_page: openshift-apps-resource-management::index.adoc
 
 content:
   sources:
-    - url: .
-      branches: HEAD
+    - url: ./
       start_path: documentation
+
 asciidoc:
   attributes:
-    title: Efficient Resource Management with OpenShift(Dev Mode)
+    tutorial-namespace: helm-tutorial
     quarkus-version: 2.4.2.Final
     graalvm-version: 21.3.0
     project-name: tutorial-app
     page-pagination: true
     page-hide-versions-component: true
   extensions:
-    - ./lib/remote-include-processor.js
     - ./lib/tab-block.js
+    - ./lib/remote-include-processor.js
 ui:
   bundle:
     url: https://github.com/redhat-developer-demos/rhd-tutorial-ui/releases/download/v0.1.9/ui-bundle.zip
-  supplemental_files:
+  supplemental_files: 
     - path: ./supplemental-ui
     - path: .nojekyll
     - path: ui.yml
       contents: "static_files: [ .nojekyll ]"
+ 
 output:
   dir: ./gh-pages
