@@ -1,8 +1,9 @@
 * xref:setup.adoc[Requirements]
 ** xref:setup.adoc[Setup]
 
-* xref:configuration.adoc[Development Practices]
-** xref:configuration.adoc[Configuration]
+* xref:starter.adoc[Development Practices]
+** xref:starter.adoc[Bootstrap project]
+** xref:configuration.adoc[Adapt configurations]
 ** xref:health.adoc[Define custom health checks]
 ** xref:openshift.adoc[Deploy to OpenShift]
 ** xref:resources.adoc[Adjust resource quotas]

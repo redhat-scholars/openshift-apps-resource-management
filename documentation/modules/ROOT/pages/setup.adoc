@@ -68,4 +68,9 @@ Please have them installed and configured before you get started with any of the
 --
 ====
 
+== Red Hat OpenShift development cluster
 
+You can provision your own development environment at https://developers.redhat.com/developer-sandbox/get-started[https://developers.redhat.com/developer-sandbox/get-started]:
+
+[.mt-4.center]
+image::img.png[Sandbox Image,400,400,align="center"]

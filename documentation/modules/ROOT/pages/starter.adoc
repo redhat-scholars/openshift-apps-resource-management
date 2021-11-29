@@ -1,0 +1,159 @@
+= Bootstrap the project
+
+To demonstrate the concepts in this tutorial, we will implement the `tutorial-app` that exposes its own REST API and persists data in a PostgreSQL database.
+
+The easiest way to create a new Quarkus project is to open a terminal and run the following command:
+
+[.console-input]
+[source,bash,subs="+macros,+attributes"]
+----
+mvn "io.quarkus:quarkus-maven-plugin:{quarkus-version}:create" \
+-DprojectGroupId="com.redhat.developers" \
+-DprojectArtifactId="tutorial-app" \
+-DprojectVersion="1.0-SNAPSHOT" \
+-DclassName="GreetingResource" \
+-Dpath="messages" \
+-Dextensions="quarkus-resteasy-jsonb,quarkus-jdbc-postgresql,quarkus-hibernate-orm-panache, quarkus-smallrye-openapi,quarkus-container-image-jib,quarkus-openshift"
+----
+
+If you are a Windows user, simply inline the command:
+
+[.console-input]
+[source,bash,subs="+macros,+attributes"]
+----
+mvn "io.quarkus:quarkus-maven-plugin:{quarkus-version}:create" -DprojectGroupId="com.redhat.developers" -DprojectArtifactId="tutorial-app" -DprojectVersion="1.0-SNAPSHOT" -DclassName="GreetingResource" -Dpath="messages" -Dextensions="quarkus-resteasy-jsonb,quarkus-jdbc-postgresql,quarkus-hibernate-orm-panache, quarkus-smallrye-openapi,quarkus-container-image-jib"
+----
+
+The generated project contains an endpoint GreetingResource and is using the following Quarkus extensions:
+
+** `quarkus-resteasy-jsonb` to create JSON REST Services
+** `quarkus-smallrye-openapi` to document the exposed API
+** `quarkus-jdbc-postgresql` to connect PosgreSQL database via JDBC
+** `quarkus-hibernate-orm-panache` to make the application resilient
+** `quarkus-container-image-jib to simplify` the code when interacting with Hibernate ORM.
+** `quarkus-openshift` to generate OpenShift resources from annotations.
+
+== Add your first configuration
+
+Because both Jib and OpenShift extensions are present in the configuration, you need to decide which one you would like to use to build your container images.
+Below is the line for specifying jib:
+
+[.console-output]
+[source,bash]
+----
+quarkus.container-image.builder=jib
+----
+
+== Build and Run the Quarkus Application
+
+include::ROOT:partial$compile-and-run.adoc[]
+
+Notice how *fast* Quarkus was ready to serve your requests. In this particular example Quarkus only required *0.016s* to start.
+
+You can open your browser with the url `http://localhost:8080/messages[window="_blank"]` and you should see a response like `Hello RESTEasy`.
+
+Or else if you're a CLI person, you can run a `curl` command like:
+
+[.console-input]
+[source,bash]
+----
+curl localhost:8080/messages
+----
+
+[.console-output]
+[source,bash]
+----
+Hello RESTEasy
+----
+
+== Dev UI
+
+Quarkus now ships with a new experimental Dev UI, which is available in dev mode at http://localhost:8080/q/dev[/q/dev] by default.
+It allows you to quickly visualize all the extensions currently loaded, see their status and go directly to their documentation.
+
+== Stopping the application
+
+You can stop your running application by issuing a `CTRL+C` in your terminal.
+
+[.console-output]
+[source,bash]
+----
+^C2020-05-10 23:11:03,419 INFO  [io.quarkus] (main) tutorial-app stopped in 0.007s
+----
+
+Quarkus was able to stop in just *0.007s*. Fast to start, fast to stop. Fast always!
+
+== Testing your application
+
+The scaffolding process also creates a test case for the example endpoint.
+
+Check the file `GreetingResourceTest.java` in the folder `src/test/java` to see how a Quarkus integration test looks like.
+
+When running this test, the application is started once, then all tests are executed, and finally, the application stops. Although it is not mandatory, by default RestAssured project is used to test Rest endpoints but it is up to you to change that.
+
+You can run the test in your IDE or by running Maven:
+
+[.console-input]
+[source,bash]
+----
+./mvnw clean test
+----
+
+== Open the Project in your IDE
+
+Open or import the generated project into your IDE.
+
+If you are using **vscode** you can open the project with:
+
+[.console-input]
+[source,bash,subs="+macros,+attributes"]
+----
+code .
+----
+
+== Live Coding (Development mode)
+
+Stop the Quarkus application that might be running in `jvm` or `native` mode.
+
+_Live Coding_ or _Development mode_ enables hot deployment with background compilation, which means that when you modify your Java files and/or your resource files and refresh your browser, these changes will automatically take effect.
+
+This is probably one of the best features of Quarkus: enabling a very fast and productive iterative feedback loop.
+
+Let's start the _Live Coding_ mode by invoking `mvn`. You probably won't need to stop/start Quarkus again during this tutorial:
+
+[.console-input]
+[source,bash]
+----
+./mvnw quarkus:dev
+----
+
+== Continuous Testing (Development mode)
+
+Quarkus supports continuous testing, meaning that your tests will run immediately after code changes were saved.
+Let's start again in _Live Coding_ mode by invoking `mvn`:
+
+[.console-input]
+[source,bash]
+----
+mvn quarkus:dev
+----
+
+Quarkus will start in development mode as normal, but down the bottom of the screen you should see the following:
+[.console-input]
+[source,bash]
+----
+Tests paused
+Press [r] to resume testing, [o] Toggle test output, [h] for more options>
+----
+
+Press `r` and the tests will start running. You should see the status change down the bottom of the screen as they are running, and it should finish similar to this:
+
+[.console-input]
+[source,bash]
+----
+All 1 test is passing (0 skipped), 1 test was run in 11705ms. Tests completed at 16:02:32.
+----
+
+TIP: If you don’t want to have continuous testing enabled, you can change this by adding `quarkus.test.continuous-testing=disabled` in `application.properties`.
+
+You can find more details about controlling continuous testing in https://quarkus.io/guides/continuous-testing#controlling-continuous-testing[this guide]. 

@@ -1,0 +1,133 @@
+= Define custom health checks
+
+While you coded the database configuration in the previous exercise, Quarkus has generated Kubernetes and OpenShift resources in `target/kubernetes`:
+
+[.console-input]
+[source,config,subs="+macros,+attributes"]
+----
+target/kubernetes
+|-- kubernetes.json
+|-- kubernetes.yml
+|-- openshift.json
+`-- openshift.yml
+----
+
+Inspect their content and observe that you already have a base for your Kubernetes deployment.
+But before doing that, let's implement custom health checks.
+
+== Add the health monitoring extension
+
+In the terminal window please execute the following command
+:
+[.console-input]
+[source,config,subs="+macros,+attributes"]
+----
+./mvnw quarkus:add-extension -Dextensions="io.quarkus:quarkus-smallrye-health"
+----
+
+If you did not stop DevMode and inspect again `target/kubernetes/kubernetes.yml` or `target/kubernetes/openshift.yml` 
+will notice that it had changed. Your Deployment/DeploymentConfig resource will contain a few lines like to:
+
+[.console-input]
+[source,config,subs="+macros,+attributes"]
+----
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /q/health/live
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 0
+            periodSeconds: 30
+            successThreshold: 1
+            timeoutSeconds: 10
+          name: tutorial-app
+          ports:
+            - containerPort: 8080
+              name: http
+              protocol: TCP
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /q/health/ready
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 0
+            periodSeconds: 30
+            successThreshold: 1
+            timeoutSeconds: 10
+----
+
+TIP: You can access these endpoints also in your local at http://localhost:8080/q/health/ready or http://localhost:8080/q/health/live.
+
+== Customize health endpoints and readiness probe
+
+You can change the root path to the health endpoints by setting the following property in `src/main/resources/application.properties`:
+
+
+[.console-input]
+[source,config,subs="+macros,+attributes"]
+----
+quarkus.smallrye-health.root-path=/health
+----
+
+If you reload the context in DevMode (by pressing `s`), you would notice that your Kubernetes/OpenShift manifests have changed and take into account your new configuration.
+
+Since the application is connecting to a database, we can asses if that dependency is ready by customizing the readiness probe.
+
+
+[.console-input]
+[source,java]
+----
+package com.redhat.developers;
+
+import io.agroal.api.AgroalDataSource;
+import org.eclipse.microprofile.health.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import javax.enterprise.context.ApplicationScoped;
+import javax.inject.Inject;
+import java.sql.SQLException;
+
+@Readiness <1>
+@ApplicationScoped
+public class DatabaseConnectionHealthCheck implements HealthCheck {
+static Logger LOG = LoggerFactory.getLogger(DatabaseConnectionHealthCheck.class);
+
+    @Inject
+    AgroalDataSource defaultDataSource; <2>
+
+    @Override
+    public HealthCheckResponse call() {
+
+        HealthCheckResponseBuilder responseBuilder = HealthCheckResponse.named("Health check"); <3>
+        try {
+            responseBuilder.withData("database connection exists", simulateDatabaseConnectionVerification()).up(); <4>
+        } catch (IllegalStateException e) {
+            LOG.error("Unable to reach database", e);
+            responseBuilder.down(); <5>
+        }
+
+        return responseBuilder.build(); <6>
+    }
+
+    private boolean simulateDatabaseConnectionVerification() throws IllegalStateException {
+        try {
+            return !defaultDataSource.getConnection().getClientInfo().isEmpty();
+        } catch (SQLException e) {
+            LOG.error("Unable to reach datasource due to exception", e);
+            throw new IllegalStateException("Cannot contact database");
+        }
+    }
+}
+----
+
+<1> Annotate the class with `org.eclipse.microprofile.health.Readiness` to signal its implementation.
+<2> Inject the datasource that relates to the definition of your database. 
+<3> Offer a custom name to `HealthCheckResponseBuilder`.
+<4> If the custom check returns a valid response, the health probe succeeded.
+<5> If something is wrong with the given database connection, an exception will be thrown and we signal that the probe failed.
+<6> Build the response.
+
+TIP: You can also check your implementation in health ui: http://localhost:8080/q/health-ui/

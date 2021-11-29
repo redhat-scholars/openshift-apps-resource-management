@@ -1,0 +1,105 @@
+= Deploy to OpenShift 
+IMPORTANT: You will need a public container registry to store your image. If you don't have an account, we recommend you to create a free account at http://quay.io[window=_blank].
+
+Our examples will be using the `quay.io` container registry and the `myrepo` organization, but you should change it to match your configuration.
+
+== Adding the Kubernetes and Jib extensions
+
+You need a container registry that is accessible from your Kubernetes cluster to deploy the application container image in it.
+
+In this chapter we'll be using the Quarkus OpenShift Extension to create the OpenShift deployment file, and the Quarkus Jib Extension to create and push the container image to your container registry without the need of running local docker daemon.
+
+== Adding the configuration properties
+
+Add the following properties to your `application.properties` so that can push the container to correct location:
+
+[.console-input]
+[source,properties]
+----
+# Configuration file
+# key = value
+#quarkus.container-image.push=true <1> 
+
+quarkus.container-image.registry=quay.io <2>
+quarkus.container-image.group=myrepo <3> 
+quarkus.container-image.name=greeting-app <4> 
+quarkus.container-image.tag=1.0-SNAPSHOT <5>
+
+quarkus.kubernetes.service-type=load-balancer <6> 
+#quarkus.kubernetes.deploy=true
+quarkus.openshift.route.expose=true <7>
+----
+<1> Push the image automatically when application is packaged.
+<2> Registry where image is pushed. By default is docker hub.
+<3> Group name of the conatiner image.
+<4> Container name. By default is the `artifactId` element of `pom.xml`.
+<5> Tag of the container image. By default is the `version` element of `pom.xml`.
+<6> The Service type should be load-balancer
+<7> Ask for OpenShift route configuration as well when the application is deployed.
+
+IMPORTANT: Change `quay.io` to your container registry and `myrepo` to your organization.
+If you don't, your push *will* fail.
+
+== Authenticating and pushing the image to your container registry
+
+In order to push the container image, you need to authenticate to your container registry:
+
+[.console-input]
+[source,bash]
+----
+docker login quay.io
+----
+
+Now create and push your container image using jib:
+
+[.console-input]
+[source,bash]
+----
+./mvnw clean package -DskipTests -Dquarkus.container-image.push=true
+----
+
+[.console-output]
+[source,text]
+----
+[INFO] [io.quarkus.container.image.jib.deployment.JibProcessor] Using base image with digest: sha256:b459cc59d6c7ddc9fd52f981fc4c187f44a401f2433a1b4110810d2dd9e98a07
+[INFO] [io.quarkus.container.image.jib.deployment.JibProcessor] Container entrypoint set to [java, -Dquarkus.http.host=0.0.0.0, -Djava.util.logging.manager=org.jboss.logmanager.LogManager, -cp, /app/resources:/app/classes:/app/libs/*, io.quarkus.runner.GeneratedMain]
+[INFO] [io.quarkus.container.image.jib.deployment.JibProcessor] Pushed container image quay.io/myrepo/tutorial-app:1.0-SNAPSHOT (sha256:6651a2f85f8f53ef951b3398d00f1c7da73bd0e8b21f87584d5a1c0e99aae12c)
+
+[INFO] [io.quarkus.deployment.QuarkusAugmentor] Quarkus augmentation completed in 14804ms
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  20.431 s
+[INFO] Finished at: 2020-05-11T00:05:25-04:00
+[INFO] ------------------------------------------------------------------------
+----
+
+== Deploy your application to your Developer Sandbox 
+
+When OpenShift extension is present in the classpath, a OpenShift deployment file is scaffolded for you during package phase.
+
+[.console-input]
+[source,bash]
+----
+oc apply -f target/kubernetes/openshift.yml
+----
+
+[.console-output]
+[source,text]
+----
+service/greeting-app configured
+imagestream.image.openshift.io/greeting-app configured
+deploymentconfig.apps.openshift.io/greeting-app configured
+route.route.openshift.io/greeting-app configured
+----
+
+You might need to wait for some seconds until your application is up and running.
+Access the service via the OpenShift route created automatically:
+[.console-output]
+[source,bash]
+----
+oc get route greeting-app
+----
+
+
+TIP: You can build, push and deploy the container image by running: `./mvnw clean package -Dquarkus.kubernetes.deploy=true`

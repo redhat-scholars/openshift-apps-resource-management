@@ -1,0 +1,204 @@
+= Adapt configurations
+
+Now that we benefit from the developer experience given by Quarkus, let's adapt the application code per requirements specified initially.
+
+== Create Message Entity
+
+Create a new `Message` Java class in `src/main/java` in the `com.redhat.developers` package with the following contents:
+
+[.console-input]
+[source,java]
+----
+package com.redhat.developers;
+
+import com.fasterxml.jackson.annotation.JsonInclude;
+import io.quarkus.hibernate.orm.panache.PanacheEntity;
+
+import javax.persistence.Entity;
+
+@Entity
+@JsonInclude(JsonInclude.Include.NON_NULL)
+public class Message extends PanacheEntity {
+
+    private String content;
+
+    private String language;
+
+    private String country;
+
+    public String getContent() {
+        return content;
+    }
+
+    public void setContent(String content) {
+        this.content = content;
+    }
+
+    public String getLanguage() {
+        return language;
+    }
+
+    public void setLanguage(String language) {
+        this.language = language;
+    }
+
+    public String getCountry() {
+        return country;
+    }
+
+    public void setCountry(String country) {
+        this.country = country;
+    }
+}
+----
+
+Notice that we're not providing an `@Id`, nor we're creating the getters and setters. Don't worry. It's a *Panache* feature. By extending `PanacheEntity`, we're using the _Active Record_ persistence pattern instead of a _DAO_. This means that all persistence methods are blended with our own `Entity`.
+
+
+****
+
+**What is Panache ?**
+
+Hibernate ORM is the de facto JPA implementation and offers you the full breadth of an Object Relational Mapper. It makes complex mappings possible, but it does not make simple and common mappings trivial. Hibernate ORM with Panache focuses on making your entities trivial and fun to write in Quarkus.
+
+Fore more information please refer to the https://quarkus.io/guides/hibernate-orm-panache-guide[Panache Guide, window="_blank"]
+
+****
+
+== Modify GreetingResource
+
+As we want to interact more with our application, let's change the behavior of the GET endpoint and add a new endpoint that supports POST.
+
+[.console-input]
+[source,java]
+----
+package com.redhat.developers;
+
+import javax.transaction.Transactional;
+import javax.ws.rs.*;
+import javax.ws.rs.core.MediaType;
+import java.util.List;
+
+@Path("messages")
+public class GreetingResource {
+
+    @POST
+    @Produces(MediaType.APPLICATION_JSON)
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Transactional
+    public Message create(Message message) {
+         Message.persist(message);
+         return message;
+    }
+
+    @GET
+    @Produces(MediaType.APPLICATION_JSON)
+    public List<Message> findAll() {
+        return Message.findAll().list();
+    }
+
+}
+----
+
+== Modify GreetingResourceTest
+
+Since Dev mode is enabled and if you pressed `r` to run ContinuousTesting, you will also a test failure.
+To fix the test failure, modify `GreetingResourceTest` as follows:
+
+[.console-input]
+[source,java]
+----
+package com.redhat.developers;
+
+import io.quarkus.test.junit.QuarkusTest;
+import io.restassured.http.ContentType;
+import org.junit.jupiter.api.Test;
+
+import static io.restassured.RestAssured.given;
+import static org.hamcrest.CoreMatchers.notNullValue;
+
+@QuarkusTest
+public class GreetingResourceTest {
+
+    @Test
+    public void testCreate() {
+        Message message = new Message();
+        given().contentType(ContentType.JSON).body(message)
+                .when().post("/messages")
+                .then()
+                .statusCode(200)
+                .body(notNullValue());
+    }
+
+}
+----
+
+[reftext="Dev Services"]
+== Zero Config Database Setup
+
+Quarkus can even provide you with a zero-config database out of the box when testing or running in dev mode, a feature we refer to as Dev Services. Depending on your database type, you may need Docker installed to use this feature.
+
+
+To use Dev Services, all you need to do is include the relevant extension for the type of database you want (either reactive or JDBC, or both), without configuring any database URL, username, and password.
+
+Quarkus will provide the database. You can just start coding without worrying about config.
+
+TIP: If you are using a proprietary database such as `DB2` or `MSSQL` you will need to accept the license agreement. To do this create a `src/main/resources/container-license-acceptance.txt` file in your project and add a line with the image name and tag of the database.
+
+More on zero config setup of datasources can be found https://quarkus.io/guides/datasource#dev-services[here].
+
+NOTE: Dev Services are enabled by default, but you can disable them by going to `application.properties` and setting `quarkus.datasource.devservices.enabled` to `false`.
+
+Add the following database properties to your `application.properties` so that it looks like:
+
+[#quarkuspdb-update-props]
+[.console-input]
+[source,config,subs="+macros,+attributes"]
+----
+# Configuration file
+# key = value
+quarkus.datasource.db-kind = postgresql <1>
+quarkus.container-image.builder=jib
+quarkus.hibernate-orm.sql-load-script=import.sql <2>
+quarkus.hibernate-orm.database.generation = drop-and-create
+
+%dev.quarkus.hibernate-orm.log.sql=true
+%dev.quarkus.hibernate-orm.log.bind-param=true
+
+%prod.quarkus.datasource.db-kind = postgresql
+%prod.quarkus.datasource.username = ${POSTGRES_USERNAME:postgres} <3>
+%prod.quarkus.datasource.password = ${POSTGRES_PASSWORD:postgres}
+%prod.quarkus.datasource.jdbc.url = jdbc:postgresql://${POSTGRES_SERVER:postgres}:5432/postgres
+%prod.quarkus.hibernate-orm.log.sql = false
+----
+
+<1> With <<Dev Services>> enabled, no JDBC URL needs to be provided in Dev Mode. In this case, we input the URL to ensure consistency across all application run modes.
+<2> You can specify an sql script to initialize your database. You can even have it defined per application profile (by appending application profile to its name).
+<3> Only for prod application profile the database credentials are needed.
+
+Create `import.sql` file in `src/main/resources` with the following content:
+
+[.console-input]
+[source,sql]
+----
+insert into Message(content, country, language, id) values('Hello', 'United Kingdom', 'English', nextval('hibernate_sequence'));
+insert into Message(content, country, language, id) values('Hola', 'Spain', 'Spanish', nextval('hibernate_sequence'));
+insert into Message(content, country, language, id) values('Salut', 'Romania', 'Romanian', nextval('hibernate_sequence'));
+insert into Message(content, country, language, id) values('Bonjour', 'France', 'French', nextval('hibernate_sequence'));
+----
+
+== Create your database setup in Developer Sandbox
+
+In order to setup your production database in https://developers.redhat.com/developer-sandbox/get-started[Developer Sandbox], please do the following steps:
+ 
+** click on `+Add` from the left hand side menu
+** select `Database` from `Developer Catalog` and afterwards `PostgreSQL (Ephemeral)`
+
+[.mt-4.center]
+image::postgresql.png[Database,400,400,align="center"]
+
+** click on `Instantiate template` button and fill in the following details:
+
+[.mt-4.center]
+image::template.png[Database,400,400,align="center"]
+
