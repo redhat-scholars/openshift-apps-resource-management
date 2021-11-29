@@ -1,0 +1,69 @@
+[[requirements]]
+= Setup
+include::../_attributes.adoc[]
+
+== IDE
+
+You can use any IDE for this tutorial but if you didn't try it before, we recommend https://code.visualstudio.com/download[VS Code, window="_blank"] with the https://marketplace.visualstudio.com/items?itemName=redhat.java[Language Support for Java(TM) by Red Hat, window="_blank"] and the https://marketplace.visualstudio.com/items?itemName=redhat.vscode-quarkus[Quarkus, window="_blank"] extensions.
+
+[TIP]
+====
+If you are using vscode then install vscode https://aka.ms/vscode-remote/download/extension[Remote Development Extension pack],
+which allows you to run this entire tutorial within a container that will have all tools configured.
+====
+
+== CLI Tools
+
+The following CLI tools are required for running the exercises in this tutorial.
+
+////
+ifndef::workshop[]
+Kubernetes/OpenShift are required only in case you want to deploy the application into them.
+endif::workshop[]
+////
+
+[WARNING]
+====
+GraalVM is only required if you intend to build a native image for you local operating system. If you want to create a container using a native image, you can use the Quarkus feature for this and don't need to install GraalVM locally.
+If you installed GraalVM, make sure to also install `native-image`
+
+[#quarkus-tutorial-graalvm-native]
+[source,bash,subs="+macros,+attributes"]
+----
+gu install native-image
+----
+====
+
+[tabs]
+====
+Local  Installation::
++
+--
+Please have them installed and configured before you get started with any of the tutorial chapters.
+
+[options="header"]
+|===
+|**Tool**|**macOS**|**Fedora**|**Windows**
+
+| **Docker**
+| https://www.docker.com/products/docker-desktop[Docker Desktop for Mac, window="_blank"]
+| `dnf install docker`
+| https://www.docker.com/products/docker-desktop[Docker Desktop for Windows, window="_blank"]
+
+| **Java 11**
+| `brew tap AdoptOpenJDK/openjdk && brew cask install adoptopenjdk11`
+| `dnf install java-11-openjdk.x86_64`
+| https://adoptopenjdk.net[Windows] (Make sure you set the `JAVA_HOME` environment variable and add `%JAVA_HOME%\bin` to your `PATH`)
+
+| **Apache Maven 3.8.1+**
+| `brew install maven`
+| `dnf install maven`
+| https://maven.apache.org/download.cgi[Windows] (Make sure you set the `MAVEN_HOME` environment variable and add `%MAVEN_HOME%\bin` to your `PATH`)
+
+| **Graal VM**
+| https://github.com/graalvm/graalvm-ce-builds/releases/download/vm-{graalvm-version}/graalvm-ce-java11-darwin-amd64-{graalvm-version}.tar.gz[GraalVM Community Edition {graalvm-version}]
+| https://github.com/graalvm/graalvm-ce-builds/releases/download/vm-{graalvm-version}/graalvm-ce-java11-linux-amd64-{graalvm-version}.tar.gz[GraalVM Community Edition {graalvm-version}]
+| https://github.com/graalvm/graalvm-ce-builds/releases/download/vm-{graalvm-version}/graalvm-ce-java11-windows-amd64-{graalvm-version}.zip[GraalVM Community Edition {graalvm-version}]
+====
+
+

@@ -2,9 +2,8 @@ runtime:
   cache_dir: ./.cache/antora
 
 site:
-  title: Template Tutorial
-  url: https://redhat-scholars.github.io/course-template
-  start_page: template-tutorial::index.adoc
+  url: https://redhat-scholars.github.io/openshift-apps-resource-management
+  start_page: openshift-apps-resource-management::index.adoc
 
 content:
   sources:
@@ -18,11 +17,9 @@ asciidoc:
   extensions:
     - ./lib/tab-block.js
     - ./lib/remote-include-processor.js
-
 ui:
   bundle:
     url: https://github.com/redhat-developer-demos/rhd-tutorial-ui/releases/download/v0.1.9/ui-bundle.zip
-    snapshot: true
   supplemental_files:
     - path: ./supplemental-ui
     - path: .nojekyll

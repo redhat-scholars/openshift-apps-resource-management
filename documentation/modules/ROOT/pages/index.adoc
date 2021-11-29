@@ -1,20 +1,16 @@
-= Welcome to Template Tutorial
+= Welcome to Efficient Resource Management with OpenShift
 :page-layout: home
 :!sectids:
 
 [.text-center.strong]
-== Publish Services to Kubernetes
+== Efficient Resource Management
 
-A Kubernetes tutorial to show how you can deploy a Java service to a Kubernetes cluster as it was a child game.
+Let's explore best practices and useful settings to manage application’s resources in an OpenShift cluster. Since the load of cluster usage may increase rapidly due to traffic load and the amount of applications deployed, it's better to set up resource quotas to keep the workloads running smoothly.
+
+[.mt-4.center]
+image::os-overview-image.png[OpenShift Overview Image,400,400,align="center"]
 
 [.tiles.browse]
 == Browse modules
 
-[.tile]
-.xref:01-setup.adoc[Get Started]
-* xref:01-setup.adoc#minikube[Minikube]
-
-[.tile]
-.xref:02-deploy.adoc[Deploying]
-* xref:02-deploy.adoc#package[Package the Application]
-* xref:02-deploy.adoc#deploy[Deploy the Application]
+include::../nav.adoc[]
