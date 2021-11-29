@@ -7,8 +7,10 @@ site:
   start_page: openshift-apps-resource-management::index.adoc
 
 content:
-  - url: ./
-    start_path: documentation
+  sources:
+    - url: ./
+      start_path: documentation
+      
 asciidoc:
   attributes:
     quarkus-version: 2.4.2.Final
