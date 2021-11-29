@@ -1,6 +1,6 @@
 [[requirements]]
 = Setup
-include::../_attributes.adoc[]
+include::_attributes.adoc[]
 
 == IDE
 
@@ -32,6 +32,7 @@ If you installed GraalVM, make sure to also install `native-image`
 ----
 gu install native-image
 ----
+
 ====
 
 [tabs]
@@ -64,6 +65,7 @@ Please have them installed and configured before you get started with any of the
 | https://github.com/graalvm/graalvm-ce-builds/releases/download/vm-{graalvm-version}/graalvm-ce-java11-darwin-amd64-{graalvm-version}.tar.gz[GraalVM Community Edition {graalvm-version}]
 | https://github.com/graalvm/graalvm-ce-builds/releases/download/vm-{graalvm-version}/graalvm-ce-java11-linux-amd64-{graalvm-version}.tar.gz[GraalVM Community Edition {graalvm-version}]
 | https://github.com/graalvm/graalvm-ce-builds/releases/download/vm-{graalvm-version}/graalvm-ce-java11-windows-amd64-{graalvm-version}.zip[GraalVM Community Edition {graalvm-version}]
+--
 ====
 
 
