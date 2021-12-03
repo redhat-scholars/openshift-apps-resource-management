@@ -80,7 +80,7 @@
     <a class="nav-link" href="resources.html">Adjust resource quotas</a>
   </li>
   <li class="nav-item" data-depth="2">
-    <a class="nav-link" href="separate.html">Separate configuration concerns</a>
+    <a class="nav-link" href="separate.html">Testing configurations</a>
   </li>
   <li class="nav-item" data-depth="2">
     <a class="nav-link" href="metrics.html">Tailor metrics</a>
@@ -146,9 +146,8 @@ quarkus.container-image.group=myrepo <i class="conum" data-value="3"></i><b>(3)<
 quarkus.container-image.name=greeting-app <i class="conum" data-value="4"></i><b>(4)</b>
 quarkus.container-image.tag=1.0-SNAPSHOT <i class="conum" data-value="5"></i><b>(5)</b>
 
-quarkus.kubernetes.service-type=load-balancer <i class="conum" data-value="6"></i><b>(6)</b>
 #quarkus.kubernetes.deploy=true
-quarkus.openshift.route.expose=true <i class="conum" data-value="7"></i><b>(7)</b></code></pre>
+quarkus.openshift.route.expose=true <i class="conum" data-value="6"></i><b>(6)</b></code></pre>
 </div>
 </div>
 <div class="colist arabic">
@@ -175,10 +174,6 @@ quarkus.openshift.route.expose=true <i class="conum" data-value="7"></i><b>(7)</
 </tr>
 <tr>
 <td><i class="conum" data-value="6"></i><b>6</b></td>
-<td>The Service type should be load-balancer</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="7"></i><b>7</b></td>
 <td>Ask for OpenShift route configuration as well when the application is deployed.</td>
 </tr>
 </table>
@@ -235,7 +230,7 @@ If you don&#8217;t, your push <strong>will</strong> fail.
 </div>
 </div>
 <div class="sect1">
-<h2 id="_deploy_your_application_to_your_developer_sandbox"><a class="anchor" href="#_deploy_your_application_to_your_developer_sandbox"></a>Deploy your application to your Developer Sandbox</h2>
+<h2 id="_deploy_your_application_to_your_openshift"><a class="anchor" href="#_deploy_your_application_to_your_openshift"></a>Deploy your application to your OpenShift</h2>
 <div class="sectionbody">
 <div class="paragraph">
 <p>When OpenShift extension is present in the classpath, a OpenShift deployment file is scaffolded for you during package phase.</p>

@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>Untitled :: Efficient Resource Management with OpenShift</title>
+    <title>Adjust resource quotas :: Efficient Resource Management with OpenShift</title>
     <link rel="canonical" href="https://redhat-scholars.github.io/openshift-apps-resource-management/openshift-apps-resource-management/resources.html">
     <link rel="prev" href="openshift.html">
     <link rel="next" href="separate.html">
@@ -80,7 +80,7 @@
     <a class="nav-link" href="resources.html">Adjust resource quotas</a>
   </li>
   <li class="nav-item" data-depth="2">
-    <a class="nav-link" href="separate.html">Separate configuration concerns</a>
+    <a class="nav-link" href="separate.html">Testing configurations</a>
   </li>
   <li class="nav-item" data-depth="2">
     <a class="nav-link" href="metrics.html">Tailor metrics</a>
@@ -110,10 +110,129 @@
   </div>
   <div class="content">
 <article class="doc">
+<h1 class="page">Adjust resource quotas</h1>
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph">
+<p>By default, containers run with unbounded compute resources on a Kubernetes cluster.
+Developer Sandbox is managed OpenShift environment, its cluster resources are tailored per development needs.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_discovering_project_resource_limits"><a class="anchor" href="#_discovering_project_resource_limits"></a>Discovering project resource limits</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>With resource quotas, cluster administrators can restrict resource consumption and creation on a namespace basis.
+There will always be concerns that one Pod or Container could monopolize all available resources.
+To avoid that, within a namespace, a Pod or Container can consume as much CPU and memory as defined by the <code>namespace&#8217;s/project&#8217;s</code> resource quota.</p>
+</div>
+<div class="paragraph">
+<p>To discover the resource quota established for your namespace/project you can run the following command:</p>
+</div>
+<div class="listingblock console-input">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">oc get resourcequota</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>At namespace/project level a LimitRange policy is employed to constrain resource allocations (to Pods or Containers).
+You can find out the LimitRange established for a namespace by running <code>oc get limitrange</code> and ask for its description via:</p>
+</div>
+<div class="listingblock console-input">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">oc describe limitrange resource-limits</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The output should be something similar to:</p>
+</div>
+<div class="listingblock console-output">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-text hljs" data-lang="text">Name:       resource-limits
+Namespace:  anasandbox-dev
+Type        Resource  Min  Max  Default Request  Default Limit  Max Limit/Request Ratio
+----        --------  ---  ---  ---------------  -------------  -----------------------
+Container   cpu       -    -    10m              1              -
+Container   memory    -    -    64Mi             750Mi          -</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The above LimitRange has enforced the default request/limit for compute resources in the namespace and automatically injects them to Containers at runtime.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_adjusting_container_resources"><a class="anchor" href="#_adjusting_container_resources"></a>Adjusting container resources</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>By using tool called <a href="https://github.com/JoeDog/siege">siege</a>, you can run a load test on your server and see how your system performs under different circumstances.</p>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+Siege should only be ran against servers you own or on such you have explicit permission to test. In some countries, using siege on unauthorized websites can be considered a crime.
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>Let&#8217;s run a siege command against the route exposed by previous deployment:</p>
+</div>
+<div class="listingblock console-input">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">export ROUTE_URL=$(kubectl get route greeting-app -o jsonpath='{.spec.host}')
+siege -r 10 -c 4 -v $ROUTE_URL/messages</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>In the Developer Sandbox click on <code>Observe</code> and select the <code>Metric</code> tab.
+You can select CPU Usage or Memory Usage query to check the resources consumed by each of your pods:</p>
+</div>
+<div class="imageblock text-center mt-4 center">
+<div class="content">
+<img src="_images/cpu_usage.png" alt="CPU Usage" width="600" height="600">
+</div>
+</div>
+<div class="imageblock text-center mt-4 center">
+<div class="content">
+<img src="_images/memory_usage.png" alt="Memory Usage" width="600" height="600">
+</div>
+</div>
+<div class="paragraph">
+<p>Based on that you can adjust your container resources in <code>application.properties</code>:</p>
+</div>
+<div class="listingblock console-input">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-properties hljs" data-lang="properties"># Configuration file
+# key = value
 
+quarkus.openshift.resources.limits.cpu=200m
+quarkus.openshift.resources.limits.memory=280Mi
+quarkus.openshift.resources.requests.cpu=100m
+quarkus.openshift.resources.requests.memory=140Mi</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The resources in <code>target/kubernetes</code> folder will be reworked at compile time and contain these new definitions.</p>
+</div>
+<div class="paragraph">
+<p>You can now deploy the changes by using the command:</p>
+</div>
+<div class="listingblock console-input">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-properties hljs" data-lang="properties">mvn clean package -Dquarkus.kubernetes.deploy=true -Dquarkus.container-image.push=true</code></pre>
+</div>
+</div>
+</div>
+</div>
 <nav class="pagination">
   <span class="prev"><a href="openshift.html">Deploy to OpenShift</a></span>
-  <span class="next"><a href="separate.html">Separate configuration concerns</a></span>
+  <span class="next"><a href="separate.html">Testing configurations</a></span>
 </nav>
 </article>
 <aside class="toc sidebar" data-title="Contents" data-levels="2">
