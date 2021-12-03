@@ -187,7 +187,7 @@ insert into Message(content, country, language, id) values('Salut', 'Romania', '
 insert into Message(content, country, language, id) values('Bonjour', 'France', 'French', nextval('hibernate_sequence'));
 ----
 
-== Create your database setup in Developer Sandbox
+== Create your database setup in OpenShift
 
 In order to setup your production database in https://developers.redhat.com/developer-sandbox/get-started[Developer Sandbox], please do the following steps:
  

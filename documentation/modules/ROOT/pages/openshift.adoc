@@ -25,17 +25,15 @@ quarkus.container-image.group=myrepo <3>
 quarkus.container-image.name=greeting-app <4> 
 quarkus.container-image.tag=1.0-SNAPSHOT <5>
 
-quarkus.kubernetes.service-type=load-balancer <6> 
 #quarkus.kubernetes.deploy=true
-quarkus.openshift.route.expose=true <7>
+quarkus.openshift.route.expose=true <6>
 ----
 <1> Push the image automatically when application is packaged.
 <2> Registry where image is pushed. By default is docker hub.
 <3> Group name of the conatiner image.
 <4> Container name. By default is the `artifactId` element of `pom.xml`.
 <5> Tag of the container image. By default is the `version` element of `pom.xml`.
-<6> The Service type should be load-balancer
-<7> Ask for OpenShift route configuration as well when the application is deployed.
+<6> Ask for OpenShift route configuration as well when the application is deployed.
 
 IMPORTANT: Change `quay.io` to your container registry and `myrepo` to your organization.
 If you don't, your push *will* fail.
@@ -74,7 +72,7 @@ Now create and push your container image using jib:
 [INFO] ------------------------------------------------------------------------
 ----
 
-== Deploy your application to your Developer Sandbox 
+== Deploy your application to your OpenShift
 
 When OpenShift extension is present in the classpath, a OpenShift deployment file is scaffolded for you during package phase.
 

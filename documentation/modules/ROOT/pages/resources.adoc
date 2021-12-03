@@ -1,0 +1,89 @@
+= Adjust resource quotas
+
+By default, containers run with unbounded compute resources on a Kubernetes cluster. 
+Developer Sandbox is managed OpenShift environment, its cluster resources are tailored per development needs.
+
+== Discovering project resource limits
+
+With resource quotas, cluster administrators can restrict resource consumption and creation on a namespace basis.
+There will always be concerns that one Pod or Container could monopolize all available resources.
+To avoid that, within a namespace, a Pod or Container can consume as much CPU and memory as defined by the `namespace's/project's` resource quota.
+
+To discover the resource quota established for your namespace/project you can run the following command:
+
+[.console-input]
+[source,bash]
+----
+oc get resourcequota
+----
+At namespace/project level a LimitRange policy is employed to constrain resource allocations (to Pods or Containers).
+You can find out the LimitRange established for a namespace by running `oc get limitrange` and ask for its description via:
+
+[.console-input]
+[source,bash]
+----
+oc describe limitrange resource-limits
+----
+
+The output should be something similar to:
+
+[.console-output]
+[source,text]
+----
+Name:       resource-limits
+Namespace:  anasandbox-dev
+Type        Resource  Min  Max  Default Request  Default Limit  Max Limit/Request Ratio
+----        --------  ---  ---  ---------------  -------------  -----------------------
+Container   cpu       -    -    10m              1              -
+Container   memory    -    -    64Mi             750Mi          -
+----
+
+The above LimitRange has enforced the default request/limit for compute resources in the namespace and automatically injects them to Containers at runtime.
+
+== Adjusting container resources
+
+By using tool called https://github.com/JoeDog/siege[siege], you can run a load test on your server and see how your system performs under different circumstances.
+
+IMPORTANT:  Siege should only be ran against servers you own or on such you have explicit permission to test. In some countries, using siege on unauthorized websites can be considered a crime.
+
+Let's run a siege command against the route exposed by previous deployment:
+
+[.console-input]
+[source,bash]
+----
+export ROUTE_URL=$(kubectl get route greeting-app -o jsonpath='{.spec.host}')
+siege -r 10 -c 4 -v $ROUTE_URL/messages
+----
+
+In the Developer Sandbox click on `Observe` and select the `Metric` tab. 
+You can select CPU Usage or Memory Usage query to check the resources consumed by each of your pods:
+
+[.mt-4.center]
+image::cpu_usage.png[CPU Usage,600,600,align="center"]
+
+[.mt-4.center]
+image::memory_usage.png[Memory Usage,600,600,align="center"]
+
+Based on that you can adjust your container resources in `application.properties`:
+
+[.console-input]
+[source,properties]
+----
+# Configuration file
+# key = value
+
+quarkus.openshift.resources.limits.cpu=200m
+quarkus.openshift.resources.limits.memory=280Mi
+quarkus.openshift.resources.requests.cpu=100m
+quarkus.openshift.resources.requests.memory=140Mi
+----
+
+The resources in `target/kubernetes` folder will be reworked at compile time and contain these new definitions.
+
+You can now deploy the changes by using the command:
+
+[.console-input]
+[source,properties]
+----
+mvn clean package -Dquarkus.kubernetes.deploy=true -Dquarkus.container-image.push=true
+----
