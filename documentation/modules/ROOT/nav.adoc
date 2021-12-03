@@ -7,7 +7,7 @@
 ** xref:health.adoc[Define custom health checks]
 ** xref:openshift.adoc[Deploy to OpenShift]
 ** xref:resources.adoc[Adjust resource quotas]
-** xref:separate.adoc[Testing configurations]
+** xref:separate.adoc[Test configurations]
 ** xref:metrics.adoc[Tailor metrics]
 
 
