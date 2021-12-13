@@ -13,7 +13,7 @@ mvn "io.quarkus:quarkus-maven-plugin:{quarkus-version}:create" \
 -DprojectVersion="1.0-SNAPSHOT" \
 -DclassName="GreetingResource" \
 -Dpath="messages" \
--Dextensions="quarkus-resteasy-jsonb,quarkus-jdbc-postgresql,quarkus-hibernate-orm-panache, quarkus-smallrye-openapi,quarkus-container-image-jib,quarkus-openshift"
+-Dextensions="quarkus-resteasy-jsonb,quarkus-jdbc-postgresql,quarkus-hibernate-orm-panache, quarkus-rest-client, quarkus-smallrye-openapi,quarkus-container-image-jib,quarkus-openshift"
 ----
 
 If you are a Windows user, simply inline the command:
@@ -27,10 +27,11 @@ mvn "io.quarkus:quarkus-maven-plugin:{quarkus-version}:create" -DprojectGroupId=
 The generated project contains an endpoint GreetingResource and is using the following Quarkus extensions:
 
 ** `quarkus-resteasy-jsonb` to create JSON REST Services
+** `quarkus-rest-client` to consume a REST endpoint.
 ** `quarkus-smallrye-openapi` to document the exposed API
 ** `quarkus-jdbc-postgresql` to connect PosgreSQL database via JDBC
-** `quarkus-hibernate-orm-panache` to make the application resilient
-** `quarkus-container-image-jib to simplify` the code when interacting with Hibernate ORM.
+** `quarkus-hibernate-orm-panache` to simplify the code when interacting with Hibernate ORM.
+** `quarkus-container-image-jib` the generate a container image without running a Docker daemon.
 ** `quarkus-openshift` to generate OpenShift resources from annotations.
 
 == Add your first configuration

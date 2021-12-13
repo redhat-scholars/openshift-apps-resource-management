@@ -60,10 +60,132 @@ will notice that it had changed. Your Deployment/DeploymentConfig resource will 
 
 TIP: You can access these endpoints also in your local at http://localhost:8080/q/health/ready or http://localhost:8080/q/health/live.
 
+== Customize integrations and startup configurations
+=== Consuming a REST endpoint
+
+Let's assume that at application startup we insert some data in our database, but
+we should also update the message content from an external service.
+
+To consume the external service we need to define an interface and register it as a REST client:
+
+[.console-input]
+[source,java]
+----
+package com.redhat.developers;
+
+import org.eclipse.microprofile.rest.client.inject.RegisterRestClient;
+
+import javax.ws.rs.GET;
+import javax.ws.rs.Path;
+import javax.ws.rs.Produces;
+import javax.ws.rs.QueryParam;
+import javax.ws.rs.core.MediaType;
+
+@RegisterRestClient
+@Path("/hellosalut")
+public interface HelloService {
+
+    @GET
+    @Path("/")
+    @Produces(MediaType.APPLICATION_JSON)
+    String getContent(@QueryParam("lang") String lang);
+}
+----
+
+And add in `src/main/resources/application.properties`:
+
+[.console-input]
+[source,config,subs="+macros,+attributes"]
+----
+com.redhat.developers.HelloService/mp-rest/url=https://fourtonfish.com
+----
+
+=== Define actions at startup initialization
+
+Furthermore, we can use the previously defined endpoint to update our data using an intermediary class:
+
+[.console-input]
+[source,java]
+----
+package com.redhat.developers;
+
+import io.quarkus.panache.common.Parameters;
+
+import javax.enterprise.context.ApplicationScoped;
+import javax.transaction.Transactional;
+
+@ApplicationScoped
+public class GreetingService {
+
+    @Transactional
+    public int update(String content, String language) {
+        return Message.update("content= :content where language= :language ",
+                Parameters.with("content", content)
+                        .and("language", language));
+    }
+}
+----
+
+And inject this class in the one used to customize startup initialization of data:
+
+[.console-input]
+[source,java]
+----
+package com.redhat.developers;
+
+import io.quarkus.arc.profile.UnlessBuildProfile;
+import io.quarkus.runtime.Startup;
+import org.eclipse.microprofile.rest.client.inject.RestClient;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import javax.annotation.PostConstruct;
+import javax.enterprise.context.ApplicationScoped;
+import javax.inject.Inject;
+import javax.transaction.Transactional;
+import java.util.List;
+
+@Startup //<1>
+@ApplicationScoped 
+@UnlessBuildProfile("test") //<2>
+public class MessageInitializer {
+    private static final Logger LOGGER = LoggerFactory.getLogger(MessageInitializer.class);
+
+    @Inject
+    @RestClient
+    HelloService helloService; //<3>
+
+    @Inject
+    GreetingService greetingService; //<4>
+
+    @PostConstruct
+    public void init() {
+        LOGGER.debug("Updating the db from external service");
+        List<Message> messages = Message.findAll().list();
+        for (Message message : messages) {
+            String language = message.getLanguage();
+            greetingService.update(helloService.getContent(language), language); //<5>
+        }
+        LOGGER.debug("End update of the db ");
+    }
+}
+----
+
+<1> This annotation initializes a CDI bean at application startup. 
+This code will be executed after initializing the database from `import.sql`.
+<2> This will enabled for both prod and dev build time profiles.
+<3> Inject the `RestClient` service.
+<4> Inject the service that updates database content and has `@Transactional` annotation set on the invoked method.
+<5> Invoke record update.
+
+
+
 == Customize health endpoints and readiness probe
 
-You can change the root path to the health endpoints by setting the following property in `src/main/resources/application.properties`:
+Some extension may provide default health checks, including the extension will automatically register its health checks.
+For example, `quarkus-agroal` (that is used to manage Quarkus datasources)  automatically registers a readiness health check that will validate each datasource.
 
+You can change the root path to the health endpoints by setting the following property in `src/main/resources/application.properties`:
 
 [.console-input]
 [source,config,subs="+macros,+attributes"]
@@ -73,7 +195,7 @@ quarkus.smallrye-health.root-path=/health
 
 If you reload the context in DevMode (by pressing `s`), you would notice that your Kubernetes/OpenShift manifests have changed and take into account your new configuration.
 
-Since the application is connecting to a database, we can asses if that dependency is ready by customizing the readiness probe.
+As the database readiness is already assessed, we can customize a startup probe to check the availability of the endpoint `https://fourtonfish.com`:
 
 
 [.console-input]
@@ -81,53 +203,83 @@ Since the application is connecting to a database, we can asses if that dependen
 ----
 package com.redhat.developers;
 
-import io.agroal.api.AgroalDataSource;
-import org.eclipse.microprofile.health.*;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import io.smallrye.health.checks.UrlHealthCheck;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.eclipse.microprofile.health.HealthCheck;
+import org.eclipse.microprofile.health.Readiness;
 
 import javax.enterprise.context.ApplicationScoped;
-import javax.inject.Inject;
-import java.sql.SQLException;
+import javax.ws.rs.HttpMethod;
 
-@Readiness <1>
 @ApplicationScoped
-public class DatabaseConnectionHealthCheck implements HealthCheck {
-static Logger LOG = LoggerFactory.getLogger(DatabaseConnectionHealthCheck.class);
+public class CustomHealthCheck {
 
-    @Inject
-    AgroalDataSource defaultDataSource; <2>
+    @ConfigProperty(name = "com.redhat.developers.HelloService/mp-rest/url")
+    String externalURL;
 
-    @Override
-    public HealthCheckResponse call() {
-
-        HealthCheckResponseBuilder responseBuilder = HealthCheckResponse.named("Health check"); <3>
-        try {
-            responseBuilder.withData("database connection exists", simulateDatabaseConnectionVerification()).up(); <4>
-        } catch (IllegalStateException e) {
-            LOG.error("Unable to reach database", e);
-            responseBuilder.down(); <5>
-        }
-
-        return responseBuilder.build(); <6>
+    @Readiness //<1> 
+    HealthCheck checkURL() {
+        return new UrlHealthCheck(externalURL+"/hellosalut/?lang=en") //<2>
+                .name("external-url-check").requestMethod(HttpMethod.GET).statusCode(200);
     }
 
-    private boolean simulateDatabaseConnectionVerification() throws IllegalStateException {
-        try {
-            return !defaultDataSource.getConnection().getClientInfo().isEmpty();
-        } catch (SQLException e) {
-            LOG.error("Unable to reach datasource due to exception", e);
-            throw new IllegalStateException("Cannot contact database");
-        }
-    }
 }
 ----
 
-<1> Annotate the class with `org.eclipse.microprofile.health.Readiness` to signal its implementation.
-<2> Inject the datasource that relates to the definition of your database. 
-<3> Offer a custom name to `HealthCheckResponseBuilder`.
-<4> If the custom check returns a valid response, the health probe succeeded.
-<5> If something is wrong with the given database connection, an exception will be thrown and we signal that the probe failed.
-<6> Build the response.
+<1> Annotate the method with `org.eclipse.microprofile.health.Readiness` to signal its implementation.
+<2> `UrlHealthCheck` checks if host is reachable using a Http URL connection.
 
-TIP: You can also check your implementation in health ui: http://localhost:8080/q/health-ui/
+You can even offer a dedicated path to your probe implementation:
+
+[.console-input]
+[source,config,subs="+macros,+attributes"]
+----
+quarkus.smallrye-health.readiness-path=/health/customstart
+----
+
+In dev mode, all your heath checks are visible in health UI: http://localhost:8080/q/health-ui/.
+Also, the Quarkus Kubernetes/OpenShift extension will take into account your custom probe definitions when generating their YAML.
+
+[TIP]
+====
+Quarkus comes with some HealthCheck implementations for checking service status:
+
+** SocketHealthCheck: checks if host is reachable using a socket.
+** UrlHealthCheck: checks if host is reachable using a Http URL connection.
+** InetAddressHealthCheck: checks if host is reachable using InetAddress.isReachable method.
+====
+
+[NOTE]
+=====
+Quarkus has automatic readiness probes added when you use certain extensions: 
+
+*datasource*
+A probe to check database connection status.
+
+*kafka*
+A probe to check kafka connection status. In this case you need to enable manually by setting quarkus.kafka.health.enabled to true.
+
+*mongoDB*
+A probe to check MongoDB connection status.
+
+*neo4j*
+A probe to check Neo4J connection status.
+
+*artemis*
+A probe to check Artemis JMS connection status.
+
+*kafka-streams*
+Liveness (for stream state) and Readiness (topics created) probes.
+
+*vault*
+A probe to check Vault conection status.
+
+*gRPC*
+A readiness probe for the gRPC services.
+
+*Cassandra*
+A readiness probe to check Cassandra connection status.
+
+*Redis*
+A readiness probe to check Redis connection status.
+=====

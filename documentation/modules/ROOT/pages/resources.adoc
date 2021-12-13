@@ -42,17 +42,15 @@ The above LimitRange has enforced the default request/limit for compute resource
 
 == Adjusting container resources
 
-By using tool called https://github.com/JoeDog/siege[siege], you can run a load test on your server and see how your system performs under different circumstances.
+By using tool called https://github.com/rakyll/hey[hey], you can run a load test on your server and see how your system performs under different circumstances.
 
-IMPORTANT:  Siege should only be ran against servers you own or on such you have explicit permission to test. In some countries, using siege on unauthorized websites can be considered a crime.
-
-Let's run a siege command against the route exposed by previous deployment:
+Let's run a hey command against the route exposed by previous deployment:
 
 [.console-input]
 [source,bash]
 ----
 export ROUTE_URL=$(kubectl get route greeting-app -o jsonpath='{.spec.host}')
-siege -r 10 -c 4 -v $ROUTE_URL/messages
+hey -r 10 -c 4 -v $ROUTE_URL/messages
 ----
 
 In the Developer Sandbox click on `Observe` and select the `Metric` tab. 
