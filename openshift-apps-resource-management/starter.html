@@ -126,7 +126,7 @@
 -DprojectVersion="1.0-SNAPSHOT" \
 -DclassName="GreetingResource" \
 -Dpath="messages" \
--Dextensions="quarkus-resteasy-jsonb,quarkus-jdbc-postgresql,quarkus-hibernate-orm-panache, quarkus-smallrye-openapi,quarkus-container-image-jib,quarkus-openshift"</code></pre>
+-Dextensions="quarkus-resteasy-jsonb,quarkus-jdbc-postgresql,quarkus-hibernate-orm-panache, quarkus-rest-client, quarkus-smallrye-openapi,quarkus-container-image-jib,quarkus-openshift"</code></pre>
 </div>
 </div>
 <div class="paragraph">
@@ -146,16 +146,19 @@
 <p><code>quarkus-resteasy-jsonb</code> to create JSON REST Services</p>
 </li>
 <li>
+<p><code>quarkus-rest-client</code> to consume a REST endpoint.</p>
+</li>
+<li>
 <p><code>quarkus-smallrye-openapi</code> to document the exposed API</p>
 </li>
 <li>
 <p><code>quarkus-jdbc-postgresql</code> to connect PosgreSQL database via JDBC</p>
 </li>
 <li>
-<p><code>quarkus-hibernate-orm-panache</code> to make the application resilient</p>
+<p><code>quarkus-hibernate-orm-panache</code> to simplify the code when interacting with Hibernate ORM.</p>
 </li>
 <li>
-<p><code>quarkus-container-image-jib to simplify</code> the code when interacting with Hibernate ORM.</p>
+<p><code>quarkus-container-image-jib</code> the generate a container image without running a Docker daemon.</p>
 </li>
 <li>
 <p><code>quarkus-openshift</code> to generate OpenShift resources from annotations.</p>

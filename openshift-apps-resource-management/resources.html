@@ -166,27 +166,15 @@ Container   memory    -    -    64Mi             750Mi          -</code></pre>
 <h2 id="_adjusting_container_resources"><a class="anchor" href="#_adjusting_container_resources"></a>Adjusting container resources</h2>
 <div class="sectionbody">
 <div class="paragraph">
-<p>By using tool called <a href="https://github.com/JoeDog/siege">siege</a>, you can run a load test on your server and see how your system performs under different circumstances.</p>
-</div>
-<div class="admonitionblock important">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-important" title="Important"></i>
-</td>
-<td class="content">
-Siege should only be ran against servers you own or on such you have explicit permission to test. In some countries, using siege on unauthorized websites can be considered a crime.
-</td>
-</tr>
-</table>
+<p>By using tool called <a href="https://github.com/rakyll/hey">hey</a>, you can run a load test on your server and see how your system performs under different circumstances.</p>
 </div>
 <div class="paragraph">
-<p>Let&#8217;s run a siege command against the route exposed by previous deployment:</p>
+<p>Let&#8217;s run a hey command against the route exposed by previous deployment:</p>
 </div>
 <div class="listingblock console-input">
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">export ROUTE_URL=$(kubectl get route greeting-app -o jsonpath='{.spec.host}')
-siege -r 10 -c 4 -v $ROUTE_URL/messages</code></pre>
+hey -r 10 -c 4 -v $ROUTE_URL/messages</code></pre>
 </div>
 </div>
 <div class="paragraph">

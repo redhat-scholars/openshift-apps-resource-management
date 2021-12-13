@@ -191,8 +191,155 @@ You can access these endpoints also in your local at <a href="http://localhost:8
 </div>
 </div>
 <div class="sect1">
+<h2 id="_customize_integrations_and_startup_configurations"><a class="anchor" href="#_customize_integrations_and_startup_configurations"></a>Customize integrations and startup configurations</h2>
+<div class="sectionbody">
+<div class="sect2">
+<h3 id="_consuming_a_rest_endpoint"><a class="anchor" href="#_consuming_a_rest_endpoint"></a>Consuming a REST endpoint</h3>
+<div class="paragraph">
+<p>Let&#8217;s assume that at application startup we insert some data in our database, but
+we should also update the message content from an external service.</p>
+</div>
+<div class="paragraph">
+<p>To consume the external service we need to define an interface and register it as a REST client:</p>
+</div>
+<div class="listingblock console-input">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">package com.redhat.developers;
+
+import org.eclipse.microprofile.rest.client.inject.RegisterRestClient;
+
+import javax.ws.rs.GET;
+import javax.ws.rs.Path;
+import javax.ws.rs.Produces;
+import javax.ws.rs.QueryParam;
+import javax.ws.rs.core.MediaType;
+
+@RegisterRestClient
+@Path("/hellosalut")
+public interface HelloService {
+
+    @GET
+    @Path("/")
+    @Produces(MediaType.APPLICATION_JSON)
+    String getContent(@QueryParam("lang") String lang);
+}</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>And add in <code>src/main/resources/application.properties</code>:</p>
+</div>
+<div class="listingblock console-input">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-config hljs" data-lang="config">com.redhat.developers.HelloService/mp-rest/url=https://fourtonfish.com</code></pre>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_define_actions_at_startup_initialization"><a class="anchor" href="#_define_actions_at_startup_initialization"></a>Define actions at startup initialization</h3>
+<div class="paragraph">
+<p>Furthermore, we can use the previously defined endpoint to update our data using an intermediary class:</p>
+</div>
+<div class="listingblock console-input">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">package com.redhat.developers;
+
+import io.quarkus.panache.common.Parameters;
+
+import javax.enterprise.context.ApplicationScoped;
+import javax.transaction.Transactional;
+
+@ApplicationScoped
+public class GreetingService {
+
+    @Transactional
+    public int update(String content, String language) {
+        return Message.update("content= :content where language= :language ",
+                Parameters.with("content", content)
+                        .and("language", language));
+    }
+}</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>And inject this class in the one used to customize startup initialization of data:</p>
+</div>
+<div class="listingblock console-input">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">package com.redhat.developers;
+
+import io.quarkus.arc.profile.UnlessBuildProfile;
+import io.quarkus.runtime.Startup;
+import org.eclipse.microprofile.rest.client.inject.RestClient;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import javax.annotation.PostConstruct;
+import javax.enterprise.context.ApplicationScoped;
+import javax.inject.Inject;
+import javax.transaction.Transactional;
+import java.util.List;
+
+@Startup <i class="conum" data-value="1"></i><b>(1)</b>
+@ApplicationScoped
+@UnlessBuildProfile("test") <i class="conum" data-value="2"></i><b>(2)</b>
+public class MessageInitializer {
+    private static final Logger LOGGER = LoggerFactory.getLogger(MessageInitializer.class);
+
+    @Inject
+    @RestClient
+    HelloService helloService; <i class="conum" data-value="3"></i><b>(3)</b>
+
+    @Inject
+    GreetingService greetingService; <i class="conum" data-value="4"></i><b>(4)</b>
+
+    @PostConstruct
+    public void init() {
+        LOGGER.debug("Updating the db from external service");
+        List&lt;Message&gt; messages = Message.findAll().list();
+        for (Message message : messages) {
+            String language = message.getLanguage();
+            greetingService.update(helloService.getContent(language), language); <i class="conum" data-value="5"></i><b>(5)</b>
+        }
+        LOGGER.debug("End update of the db ");
+    }
+}</code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>This annotation initializes a CDI bean at application startup.
+This code will be executed after initializing the database from <code>import.sql</code>.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>This will enabled for both prod and dev build time profiles.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="3"></i><b>3</b></td>
+<td>Inject the <code>RestClient</code> service.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="4"></i><b>4</b></td>
+<td>Inject the service that updates database content and has <code>@Transactional</code> annotation set on the invoked method.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="5"></i><b>5</b></td>
+<td>Invoke record update.</td>
+</tr>
+</table>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
 <h2 id="_customize_health_endpoints_and_readiness_probe"><a class="anchor" href="#_customize_health_endpoints_and_readiness_probe"></a>Customize health endpoints and readiness probe</h2>
 <div class="sectionbody">
+<div class="paragraph">
+<p>Some extension may provide default health checks, including the extension will automatically register its health checks.
+For example, <code>quarkus-agroal</code> (that is used to manage Quarkus datasources)  automatically registers a readiness health check that will validate each datasource.</p>
+</div>
 <div class="paragraph">
 <p>You can change the root path to the health endpoints by setting the following property in <code>src/main/resources/application.properties</code>:</p>
 </div>
@@ -205,51 +352,32 @@ You can access these endpoints also in your local at <a href="http://localhost:8
 <p>If you reload the context in DevMode (by pressing <code>s</code>), you would notice that your Kubernetes/OpenShift manifests have changed and take into account your new configuration.</p>
 </div>
 <div class="paragraph">
-<p>Since the application is connecting to a database, we can asses if that dependency is ready by customizing the readiness probe.</p>
+<p>As the database readiness is already assessed, we can customize a startup probe to check the availability of the endpoint <code><a href="https://fourtonfish.com" class="bare">https://fourtonfish.com</a></code>:</p>
 </div>
 <div class="listingblock console-input">
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">package com.redhat.developers;
 
-import io.agroal.api.AgroalDataSource;
-import org.eclipse.microprofile.health.*;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import io.smallrye.health.checks.UrlHealthCheck;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.eclipse.microprofile.health.HealthCheck;
+import org.eclipse.microprofile.health.Readiness;
 
 import javax.enterprise.context.ApplicationScoped;
-import javax.inject.Inject;
-import java.sql.SQLException;
+import javax.ws.rs.HttpMethod;
 
-@Readiness <i class="conum" data-value="1"></i><b>(1)</b>
 @ApplicationScoped
-public class DatabaseConnectionHealthCheck implements HealthCheck {
-static Logger LOG = LoggerFactory.getLogger(DatabaseConnectionHealthCheck.class);
+public class CustomHealthCheck {
 
-    @Inject
-    AgroalDataSource defaultDataSource; <i class="conum" data-value="2"></i><b>(2)</b>
+    @ConfigProperty(name = "com.redhat.developers.HelloService/mp-rest/url")
+    String externalURL;
 
-    @Override
-    public HealthCheckResponse call() {
-
-        HealthCheckResponseBuilder responseBuilder = HealthCheckResponse.named("Health check"); <i class="conum" data-value="3"></i><b>(3)</b>
-        try {
-            responseBuilder.withData("database connection exists", simulateDatabaseConnectionVerification()).up(); <i class="conum" data-value="4"></i><b>(4)</b>
-        } catch (IllegalStateException e) {
-            LOG.error("Unable to reach database", e);
-            responseBuilder.down(); <i class="conum" data-value="5"></i><b>(5)</b>
-        }
-
-        return responseBuilder.build(); <i class="conum" data-value="6"></i><b>(6)</b>
+    @Readiness <i class="conum" data-value="1"></i><b>(1)</b>
+    HealthCheck checkURL() {
+        return new UrlHealthCheck(externalURL+"/hellosalut/?lang=en") <i class="conum" data-value="2"></i><b>(2)</b>
+                .name("external-url-check").requestMethod(HttpMethod.GET).statusCode(200);
     }
 
-    private boolean simulateDatabaseConnectionVerification() throws IllegalStateException {
-        try {
-            return !defaultDataSource.getConnection().getClientInfo().isEmpty();
-        } catch (SQLException e) {
-            LOG.error("Unable to reach datasource due to exception", e);
-            throw new IllegalStateException("Cannot contact database");
-        }
-    }
 }</code></pre>
 </div>
 </div>
@@ -257,29 +385,25 @@ static Logger LOG = LoggerFactory.getLogger(DatabaseConnectionHealthCheck.class)
 <table>
 <tr>
 <td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Annotate the class with <code>org.eclipse.microprofile.health.Readiness</code> to signal its implementation.</td>
+<td>Annotate the method with <code>org.eclipse.microprofile.health.Readiness</code> to signal its implementation.</td>
 </tr>
 <tr>
 <td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>Inject the datasource that relates to the definition of your database.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="3"></i><b>3</b></td>
-<td>Offer a custom name to <code>HealthCheckResponseBuilder</code>.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="4"></i><b>4</b></td>
-<td>If the custom check returns a valid response, the health probe succeeded.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="5"></i><b>5</b></td>
-<td>If something is wrong with the given database connection, an exception will be thrown and we signal that the probe failed.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="6"></i><b>6</b></td>
-<td>Build the response.</td>
+<td><code>UrlHealthCheck</code> checks if host is reachable using a Http URL connection.</td>
 </tr>
 </table>
+</div>
+<div class="paragraph">
+<p>You can even offer a dedicated path to your probe implementation:</p>
+</div>
+<div class="listingblock console-input">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-config hljs" data-lang="config">quarkus.smallrye-health.readiness-path=/health/customstart</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>In dev mode, all your heath checks are visible in health UI: <a href="http://localhost:8080/q/health-ui/" class="bare">http://localhost:8080/q/health-ui/</a>.
+Also, the Quarkus Kubernetes/OpenShift extension will take into account your custom probe definitions when generating their YAML.</p>
 </div>
 <div class="admonitionblock tip">
 <table>
@@ -288,7 +412,76 @@ static Logger LOG = LoggerFactory.getLogger(DatabaseConnectionHealthCheck.class)
 <i class="fa icon-tip" title="Tip"></i>
 </td>
 <td class="content">
-You can also check your implementation in health ui: <a href="http://localhost:8080/q/health-ui/" class="bare">http://localhost:8080/q/health-ui/</a>
+<div class="paragraph">
+<p>Quarkus comes with some HealthCheck implementations for checking service status:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>SocketHealthCheck: checks if host is reachable using a socket.</p>
+</li>
+<li>
+<p>UrlHealthCheck: checks if host is reachable using a Http URL connection.</p>
+</li>
+<li>
+<p>InetAddressHealthCheck: checks if host is reachable using InetAddress.isReachable method.</p>
+</li>
+</ul>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Quarkus has automatic readiness probes added when you use certain extensions:</p>
+</div>
+<div class="paragraph">
+<p><strong>datasource</strong>
+A probe to check database connection status.</p>
+</div>
+<div class="paragraph">
+<p><strong>kafka</strong>
+A probe to check kafka connection status. In this case you need to enable manually by setting quarkus.kafka.health.enabled to true.</p>
+</div>
+<div class="paragraph">
+<p><strong>mongoDB</strong>
+A probe to check MongoDB connection status.</p>
+</div>
+<div class="paragraph">
+<p><strong>neo4j</strong>
+A probe to check Neo4J connection status.</p>
+</div>
+<div class="paragraph">
+<p><strong>artemis</strong>
+A probe to check Artemis JMS connection status.</p>
+</div>
+<div class="paragraph">
+<p><strong>kafka-streams</strong>
+Liveness (for stream state) and Readiness (topics created) probes.</p>
+</div>
+<div class="paragraph">
+<p><strong>vault</strong>
+A probe to check Vault conection status.</p>
+</div>
+<div class="paragraph">
+<p><strong>gRPC</strong>
+A readiness probe for the gRPC services.</p>
+</div>
+<div class="paragraph">
+<p><strong>Cassandra</strong>
+A readiness probe to check Cassandra connection status.</p>
+</div>
+<div class="paragraph">
+<p><strong>Redis</strong>
+A readiness probe to check Redis connection status.</p>
+</div>
 </td>
 </tr>
 </table>
