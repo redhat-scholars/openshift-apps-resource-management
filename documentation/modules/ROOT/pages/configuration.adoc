@@ -159,7 +159,6 @@ Add the following database properties to your `application.properties` so that i
 # key = value
 quarkus.datasource.db-kind = postgresql <1>
 quarkus.container-image.builder=jib
-quarkus.hibernate-orm.sql-load-script=import.sql <2>
 quarkus.hibernate-orm.database.generation = drop-and-create
 
 %dev.quarkus.hibernate-orm.log.sql=true
@@ -173,8 +172,7 @@ quarkus.hibernate-orm.database.generation = drop-and-create
 ----
 
 <1> With <<Dev Services>> enabled, no JDBC URL needs to be provided in Dev Mode. In this case, we input the URL to ensure consistency across all application run modes.
-<2> You can specify an sql script to initialize your database. You can even have it defined per application profile (by appending application profile to its name).
-<3> Only for prod application profile the database credentials are needed.
+<2> Only for prod application profile the database credentials are needed.
 
 Create `import.sql` file in `src/main/resources` with the following content:
 
