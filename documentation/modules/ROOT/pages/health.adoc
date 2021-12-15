@@ -61,6 +61,17 @@ will notice that it had changed. Your Deployment/DeploymentConfig resource will 
 TIP: You can access these endpoints also in your local at http://localhost:8080/q/health/ready or http://localhost:8080/q/health/live.
 
 == Customize integrations and startup configurations
+
+=== Add the REST CLient extension
+
+In the terminal window please execute the following command
+:
+[.console-input]
+[source,config,subs="+macros,+attributes"]
+----
+./mvnw quarkus:add-extension -Dextensions="io.quarkus:quarkus-rest-client"
+----
+
 === Consuming a REST endpoint
 
 Let's assume that at application startup we insert some data in our database, but
@@ -234,7 +245,7 @@ You can even offer a dedicated path to your probe implementation:
 [.console-input]
 [source,config,subs="+macros,+attributes"]
 ----
-quarkus.smallrye-health.readiness-path=/health/customstart
+quarkus.smallrye-health.startup-path=/health/customstart
 ----
 
 In dev mode, all your heath checks are visible in health UI: http://localhost:8080/q/health-ui/.
