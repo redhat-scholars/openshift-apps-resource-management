@@ -120,13 +120,12 @@
 </div>
 <div class="listingblock console-input">
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">mvn "io.quarkus:quarkus-maven-plugin:2.5.0.Final:create" \
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">mvn "io.quarkus:quarkus-maven-plugin:create" \
 -DprojectGroupId="com.redhat.developers" \
 -DprojectArtifactId="tutorial-app" \
 -DprojectVersion="1.0-SNAPSHOT" \
 -DclassName="GreetingResource" \
--Dpath="messages" \
--Dextensions="quarkus-resteasy-jsonb,quarkus-jdbc-postgresql,quarkus-hibernate-orm-panache, quarkus-rest-client, quarkus-smallrye-openapi,quarkus-container-image-jib,quarkus-openshift"</code></pre>
+-Dpath="messages"</code></pre>
 </div>
 </div>
 <div class="paragraph">
@@ -134,11 +133,19 @@
 </div>
 <div class="listingblock console-input">
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">mvn "io.quarkus:quarkus-maven-plugin:2.5.0.Final:create" -DprojectGroupId="com.redhat.developers" -DprojectArtifactId="tutorial-app" -DprojectVersion="1.0-SNAPSHOT" -DclassName="GreetingResource" -Dpath="messages" -Dextensions="quarkus-resteasy-jsonb,quarkus-jdbc-postgresql,quarkus-hibernate-orm-panache, quarkus-smallrye-openapi,quarkus-container-image-jib"</code></pre>
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">mvn "io.quarkus:quarkus-maven-plugin:create" -DprojectGroupId="com.redhat.developers" -DprojectArtifactId="tutorial-app" -DprojectVersion="1.0-SNAPSHOT" -DclassName="GreetingResource" -Dpath="messages"</code></pre>
 </div>
 </div>
 <div class="paragraph">
-<p>The generated project contains an endpoint GreetingResource and is using the following Quarkus extensions:</p>
+<p>The generated project contains an endpoint GreetingResource. You can customize the extensions that your project will use by running:</p>
+</div>
+<div class="listingblock console-input">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">mvn quarkus:add-extension -Dextensions="quarkus-resteasy-jsonb,quarkus-jdbc-postgresql,quarkus-hibernate-orm-panache, quarkus-smallrye-openapi,quarkus-container-image-jib"</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Using the above command will enrich the project to use the following Quarkus extensions:</p>
 </div>
 <div class="ulist">
 <ul>
@@ -164,6 +171,21 @@
 <p><code>quarkus-openshift</code> to generate OpenShift resources from annotations.</p>
 </li>
 </ul>
+</div>
+<div class="admonitionblock tip">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-tip" title="Tip"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>You can create your project using <a href="https://quarkus.io/guides/cli-tooling">Quarkus CLI</a> as well.
+The benefit of using the CLI is that it will download maven, Java and the code starters for you.</p>
+</div>
+</td>
+</tr>
+</table>
 </div>
 </div>
 </div>
