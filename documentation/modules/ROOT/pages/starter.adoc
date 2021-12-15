@@ -7,13 +7,12 @@ The easiest way to create a new Quarkus project is to open a terminal and run th
 [.console-input]
 [source,bash,subs="+macros,+attributes"]
 ----
-mvn "io.quarkus:quarkus-maven-plugin:{quarkus-version}:create" \
+mvn "io.quarkus:quarkus-maven-plugin:create" \
 -DprojectGroupId="com.redhat.developers" \
 -DprojectArtifactId="tutorial-app" \
 -DprojectVersion="1.0-SNAPSHOT" \
 -DclassName="GreetingResource" \
--Dpath="messages" \
--Dextensions="quarkus-resteasy-jsonb,quarkus-jdbc-postgresql,quarkus-hibernate-orm-panache, quarkus-rest-client, quarkus-smallrye-openapi,quarkus-container-image-jib,quarkus-openshift"
+-Dpath="messages" 
 ----
 
 If you are a Windows user, simply inline the command:
@@ -21,10 +20,17 @@ If you are a Windows user, simply inline the command:
 [.console-input]
 [source,bash,subs="+macros,+attributes"]
 ----
-mvn "io.quarkus:quarkus-maven-plugin:{quarkus-version}:create" -DprojectGroupId="com.redhat.developers" -DprojectArtifactId="tutorial-app" -DprojectVersion="1.0-SNAPSHOT" -DclassName="GreetingResource" -Dpath="messages" -Dextensions="quarkus-resteasy-jsonb,quarkus-jdbc-postgresql,quarkus-hibernate-orm-panache, quarkus-smallrye-openapi,quarkus-container-image-jib"
+mvn "io.quarkus:quarkus-maven-plugin:create" -DprojectGroupId="com.redhat.developers" -DprojectArtifactId="tutorial-app" -DprojectVersion="1.0-SNAPSHOT" -DclassName="GreetingResource" -Dpath="messages"
 ----
 
-The generated project contains an endpoint GreetingResource and is using the following Quarkus extensions:
+The generated project contains an endpoint GreetingResource. You can customize the extensions that your project will use by running:
+[.console-input]
+[source,bash,subs="+macros,+attributes"]
+----
+mvn quarkus:add-extension -Dextensions="quarkus-resteasy-jsonb,quarkus-jdbc-postgresql,quarkus-hibernate-orm-panache, quarkus-smallrye-openapi,quarkus-container-image-jib"
+----
+
+Using the above command will enrich the project to use the following Quarkus extensions:
 
 ** `quarkus-resteasy-jsonb` to create JSON REST Services
 ** `quarkus-rest-client` to consume a REST endpoint.
@@ -34,6 +40,11 @@ The generated project contains an endpoint GreetingResource and is using the fol
 ** `quarkus-container-image-jib` the generate a container image without running a Docker daemon.
 ** `quarkus-openshift` to generate OpenShift resources from annotations.
 
+[TIP]
+====
+You can create your project using https://quarkus.io/guides/cli-tooling[Quarkus CLI] as well.
+The benefit of using the CLI is that it will download maven, Java and the code starters for you.
+====
 == Add your first configuration
 
 Because both Jib and OpenShift extensions are present in the configuration, you need to decide which one you would like to use to build your container images.
