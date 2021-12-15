@@ -42,7 +42,7 @@ The above LimitRange has enforced the default request/limit for compute resource
 
 == Adjusting container resources
 
-By using tool called https://github.com/rakyll/hey[hey], you can run a load test on your server and see how your system performs under different circumstances.
+By using a tool called https://github.com/rakyll/hey[hey], you can run a load test on your server and see how your system performs under different circumstances.
 
 Let's run a hey command against the route exposed by previous deployment:
 

@@ -53,7 +53,7 @@ Now create and push your container image using jib:
 [.console-input]
 [source,bash]
 ----
-./mvnw clean package -DskipTests -Dquarkus.container-image.push=true
+./mvnw clean package -Dquarkus.container-image.push=true
 ----
 
 [.console-output]

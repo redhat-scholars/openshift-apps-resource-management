@@ -173,7 +173,7 @@ public class MessageInitializer {
 
 <1> This annotation initializes a CDI bean at application startup. 
 This code will be executed after initializing the database from `import.sql`.
-<2> This will enabled for both prod and dev build time profiles.
+<2> Enable for both prod and dev build time profiles.
 <3> Inject the `RestClient` service.
 <4> Inject the service that updates database content and has `@Transactional` annotation set on the invoked method.
 <5> Invoke record update.
@@ -182,7 +182,7 @@ This code will be executed after initializing the database from `import.sql`.
 
 == Customize health endpoints and readiness probe
 
-Some extension may provide default health checks, including the extension will automatically register its health checks.
+Some extensions may provide default health checks, including that the extension will automatically register its health checks.
 For example, `quarkus-agroal` (that is used to manage Quarkus datasources)  automatically registers a readiness health check that will validate each datasource.
 
 You can change the root path to the health endpoints by setting the following property in `src/main/resources/application.properties`:
@@ -242,7 +242,7 @@ Also, the Quarkus Kubernetes/OpenShift extension will take into account your cus
 
 [TIP]
 ====
-Quarkus comes with some HealthCheck implementations for checking service status:
+Quarkus comes with some HealthCheck implementations for you to check status of different components:
 
 ** SocketHealthCheck: checks if host is reachable using a socket.
 ** UrlHealthCheck: checks if host is reachable using a Http URL connection.
