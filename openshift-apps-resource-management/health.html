@@ -194,6 +194,18 @@ You can access these endpoints also in your local at <a href="http://localhost:8
 <h2 id="_customize_integrations_and_startup_configurations"><a class="anchor" href="#_customize_integrations_and_startup_configurations"></a>Customize integrations and startup configurations</h2>
 <div class="sectionbody">
 <div class="sect2">
+<h3 id="_add_the_rest_client_extension"><a class="anchor" href="#_add_the_rest_client_extension"></a>Add the REST CLient extension</h3>
+<div class="paragraph">
+<p>In the terminal window please execute the following command
+:</p>
+</div>
+<div class="listingblock console-input">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-config hljs" data-lang="config">./mvnw quarkus:add-extension -Dextensions="io.quarkus:quarkus-rest-client"</code></pre>
+</div>
+</div>
+</div>
+<div class="sect2">
 <h3 id="_consuming_a_rest_endpoint"><a class="anchor" href="#_consuming_a_rest_endpoint"></a>Consuming a REST endpoint</h3>
 <div class="paragraph">
 <p>Let&#8217;s assume that at application startup we insert some data in our database, but
@@ -398,7 +410,7 @@ public class CustomHealthCheck {
 </div>
 <div class="listingblock console-input">
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-config hljs" data-lang="config">quarkus.smallrye-health.readiness-path=/health/customstart</code></pre>
+<pre class="highlightjs highlight"><code class="language-config hljs" data-lang="config">quarkus.smallrye-health.startup-path=/health/customstart</code></pre>
 </div>
 </div>
 <div class="paragraph">

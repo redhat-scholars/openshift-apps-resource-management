@@ -309,7 +309,6 @@ Dev Services are enabled by default, but you can disable them by going to <code>
 # key = value
 quarkus.datasource.db-kind = postgresql <i class="conum" data-value="1"></i><b>(1)</b>
 quarkus.container-image.builder=jib
-quarkus.hibernate-orm.sql-load-script=import.sql <i class="conum" data-value="2"></i><b>(2)</b>
 quarkus.hibernate-orm.database.generation = drop-and-create
 
 %dev.quarkus.hibernate-orm.log.sql=true
@@ -330,10 +329,6 @@ quarkus.hibernate-orm.database.generation = drop-and-create
 </tr>
 <tr>
 <td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>You can specify an sql script to initialize your database. You can even have it defined per application profile (by appending application profile to its name).</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="3"></i><b>3</b></td>
 <td>Only for prod application profile the database credentials are needed.</td>
 </tr>
 </table>
