@@ -164,8 +164,7 @@ quarkus.hibernate-orm.database.generation = drop-and-create
 %dev.quarkus.hibernate-orm.log.sql=true
 %dev.quarkus.hibernate-orm.log.bind-param=true
 
-%prod.quarkus.datasource.db-kind = postgresql
-%prod.quarkus.datasource.username = ${POSTGRES_USERNAME:postgres} <3>
+%prod.quarkus.datasource.username = ${POSTGRES_USERNAME:postgres} <2>
 %prod.quarkus.datasource.password = ${POSTGRES_PASSWORD:postgres}
 %prod.quarkus.datasource.jdbc.url = jdbc:postgresql://${POSTGRES_SERVER:postgres}:5432/postgres
 %prod.quarkus.hibernate-orm.log.sql = false
@@ -183,6 +182,37 @@ insert into Message(content, country, language, id) values('Hello', 'United King
 insert into Message(content, country, language, id) values('Hola', 'Spain', 'Spanish', nextval('hibernate_sequence'));
 insert into Message(content, country, language, id) values('Salut', 'Romania', 'Romanian', nextval('hibernate_sequence'));
 insert into Message(content, country, language, id) values('Bonjour', 'France', 'French', nextval('hibernate_sequence'));
+----
+
+== Setting up a test profile
+
+As our tests should run a similar configuration to what we plan to use with the production profile,
+we should setup a test profile in `application.properties`:
+
+[#quarkuspdb-update-test-props]
+[.console-input]
+[source,config,subs="+macros,+attributes"]
+----
+%test.quarkus.datasource.db-kind=h2
+%test.quarkus.datasource.username=username-default
+%test.quarkus.datasource.jdbc.url=jdbc:h2:mem:default;DB_CLOSE_DELAY=-1
+%test.quarkus.hibernate-orm.dialect=org.hibernate.dialect.H2Dialect
+%test.quarkus.datasource.jdbc.min-size=3
+%test.quarkus.datasource.jdbc.max-size=13
+%test.quarkus.datasource.jdbc.driver=org.h2.Driver
+----
+
+And the following `pom.xml` dependency for it:
+
+[#quarkuspdb-update-pom]
+[.console-input]
+[source,xml,subs="+macros,+attributes"]
+----
+    <dependency>
+      <groupId>io.quarkus</groupId>
+      <artifactId>quarkus-test-h2</artifactId>
+      <scope>test</scope>
+    </dependency>
 ----
 
 == Create your database setup in OpenShift

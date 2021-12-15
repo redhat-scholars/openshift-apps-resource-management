@@ -184,7 +184,14 @@ And we can append this new resource to our existing deployment:
 [.console-input]
 [source,bash]
 ----
-  oc set env --from=configmap/country-nl dc/greeting-app
+oc set env --from=configmap/country-nl dc/greeting-app
+----
+
+Rollout the latest `DeploymentConfig` using:
+[.console-input]
+[source,bash]
+----
+oc rollout latest dc/greeting-app
 ----
 
 You can now check your overwritten metrics via:
@@ -192,6 +199,6 @@ You can now check your overwritten metrics via:
 [.console-input]
 [source,bash]
 ----
-  curl $ROUTE_URL/q/metrics
+curl $ROUTE_URL/q/metrics
 ----
 

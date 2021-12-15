@@ -49,8 +49,8 @@ Let's run a hey command against the route exposed by previous deployment:
 [.console-input]
 [source,bash]
 ----
-export ROUTE_URL=$(kubectl get route greeting-app -o jsonpath='{.spec.host}')
-hey -r 10 -c 4 -v $ROUTE_URL/messages
+export ROUTE_URL=http://$(kubectl get route greeting-app -o jsonpath='{.spec.host}')
+hey -n 10 -c 4 -v $ROUTE_URL/messages
 ----
 
 In the Developer Sandbox click on `Observe` and select the `Metric` tab. 

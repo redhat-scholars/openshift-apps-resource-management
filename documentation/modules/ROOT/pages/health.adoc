@@ -17,8 +17,8 @@ But before doing that, let's implement custom health checks.
 
 == Add the health monitoring extension
 
-In the terminal window please execute the following command
-:
+In the terminal window please execute the following command:
+
 [.console-input]
 [source,config,subs="+macros,+attributes"]
 ----
@@ -77,7 +77,14 @@ In the terminal window please execute the following command
 Let's assume that at application startup we insert some data in our database, but
 we should also update the message content from an external service.
 
-To consume the external service we need to define an interface and register it as a REST client:
+To consume the external service we need to add the rest-client extension:
+[.console-input]
+[source,config,subs="+macros,+attributes"]
+----
+./mvnw quarkus:add-extension -Dextensions="io.quarkus:quarkus-rest-client"
+----
+
+And now let's define an interface and register it as a REST client:
 
 [.console-input]
 [source,java]
@@ -206,7 +213,7 @@ quarkus.smallrye-health.root-path=/health
 
 If you reload the context in DevMode (by pressing `s`), you would notice that your Kubernetes/OpenShift manifests have changed and take into account your new configuration.
 
-As the database readiness is already assessed, we can customize a startup probe to check the availability of the endpoint `https://fourtonfish.com`:
+As the database readiness is already assessed, we can customize another readiness probe to check the availability of the endpoint `https://fourtonfish.com`:
 
 
 [.console-input]
@@ -240,15 +247,8 @@ public class CustomHealthCheck {
 <1> Annotate the method with `org.eclipse.microprofile.health.Readiness` to signal its implementation.
 <2> `UrlHealthCheck` checks if host is reachable using a Http URL connection.
 
-You can even offer a dedicated path to your probe implementation:
-
-[.console-input]
-[source,config,subs="+macros,+attributes"]
-----
-quarkus.smallrye-health.startup-path=/health/customstart
-----
-
 In dev mode, all your heath checks are visible in health UI: http://localhost:8080/q/health-ui/.
+
 Also, the Quarkus Kubernetes/OpenShift extension will take into account your custom probe definitions when generating their YAML.
 
 [TIP]
