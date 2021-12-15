@@ -314,7 +314,7 @@ This code will be executed after initializing the database from <code>import.sql
 </tr>
 <tr>
 <td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>This will enabled for both prod and dev build time profiles.</td>
+<td>Enable for both prod and dev build time profiles.</td>
 </tr>
 <tr>
 <td><i class="conum" data-value="3"></i><b>3</b></td>
@@ -337,7 +337,7 @@ This code will be executed after initializing the database from <code>import.sql
 <h2 id="_customize_health_endpoints_and_readiness_probe"><a class="anchor" href="#_customize_health_endpoints_and_readiness_probe"></a>Customize health endpoints and readiness probe</h2>
 <div class="sectionbody">
 <div class="paragraph">
-<p>Some extension may provide default health checks, including the extension will automatically register its health checks.
+<p>Some extensions may provide default health checks, including that the extension will automatically register its health checks.
 For example, <code>quarkus-agroal</code> (that is used to manage Quarkus datasources)  automatically registers a readiness health check that will validate each datasource.</p>
 </div>
 <div class="paragraph">
@@ -413,7 +413,7 @@ Also, the Quarkus Kubernetes/OpenShift extension will take into account your cus
 </td>
 <td class="content">
 <div class="paragraph">
-<p>Quarkus comes with some HealthCheck implementations for checking service status:</p>
+<p>Quarkus comes with some HealthCheck implementations for you to check status of different components:</p>
 </div>
 <div class="ulist">
 <ul>
