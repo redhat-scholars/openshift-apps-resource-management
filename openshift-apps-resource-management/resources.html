@@ -173,8 +173,8 @@ Container   memory    -    -    64Mi             750Mi          -</code></pre>
 </div>
 <div class="listingblock console-input">
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">export ROUTE_URL=$(kubectl get route greeting-app -o jsonpath='{.spec.host}')
-hey -r 10 -c 4 -v $ROUTE_URL/messages</code></pre>
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">export ROUTE_URL=http://$(kubectl get route greeting-app -o jsonpath='{.spec.host}')
+hey -n 10 -c 4 -v $ROUTE_URL/messages</code></pre>
 </div>
 </div>
 <div class="paragraph">

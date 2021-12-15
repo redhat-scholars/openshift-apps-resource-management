@@ -314,8 +314,7 @@ quarkus.hibernate-orm.database.generation = drop-and-create
 %dev.quarkus.hibernate-orm.log.sql=true
 %dev.quarkus.hibernate-orm.log.bind-param=true
 
-%prod.quarkus.datasource.db-kind = postgresql
-%prod.quarkus.datasource.username = ${POSTGRES_USERNAME:postgres} <i class="conum" data-value="3"></i><b>(3)</b>
+%prod.quarkus.datasource.username = ${POSTGRES_USERNAME:postgres} <i class="conum" data-value="2"></i><b>(2)</b>
 %prod.quarkus.datasource.password = ${POSTGRES_PASSWORD:postgres}
 %prod.quarkus.datasource.jdbc.url = jdbc:postgresql://${POSTGRES_SERVER:postgres}:5432/postgres
 %prod.quarkus.hibernate-orm.log.sql = false</code></pre>
@@ -342,6 +341,38 @@ quarkus.hibernate-orm.database.generation = drop-and-create
 insert into Message(content, country, language, id) values('Hola', 'Spain', 'Spanish', nextval('hibernate_sequence'));
 insert into Message(content, country, language, id) values('Salut', 'Romania', 'Romanian', nextval('hibernate_sequence'));
 insert into Message(content, country, language, id) values('Bonjour', 'France', 'French', nextval('hibernate_sequence'));</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_setting_up_a_test_profile"><a class="anchor" href="#_setting_up_a_test_profile"></a>Setting up a test profile</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>As our tests should run a similar configuration to what we plan to use with the production profile,
+we should setup a test profile in <code>application.properties</code>:</p>
+</div>
+<div id="quarkuspdb-update-test-props" class="listingblock console-input">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-config hljs" data-lang="config">%test.quarkus.datasource.db-kind=h2
+%test.quarkus.datasource.username=username-default
+%test.quarkus.datasource.jdbc.url=jdbc:h2:mem:default;DB_CLOSE_DELAY=-1
+%test.quarkus.hibernate-orm.dialect=org.hibernate.dialect.H2Dialect
+%test.quarkus.datasource.jdbc.min-size=3
+%test.quarkus.datasource.jdbc.max-size=13
+%test.quarkus.datasource.jdbc.driver=org.h2.Driver</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>And the following <code>pom.xml</code> dependency for it:</p>
+</div>
+<div id="quarkuspdb-update-pom" class="listingblock console-input">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-xml hljs" data-lang="xml">    &lt;dependency&gt;
+      &lt;groupId&gt;io.quarkus&lt;/groupId&gt;
+      &lt;artifactId&gt;quarkus-test-h2&lt;/artifactId&gt;
+      &lt;scope&gt;test&lt;/scope&gt;
+    &lt;/dependency&gt;</code></pre>
 </div>
 </div>
 </div>

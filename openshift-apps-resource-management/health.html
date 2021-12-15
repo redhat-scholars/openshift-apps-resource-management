@@ -135,8 +135,7 @@ But before doing that, let&#8217;s implement custom health checks.</p>
 <h2 id="_add_the_health_monitoring_extension"><a class="anchor" href="#_add_the_health_monitoring_extension"></a>Add the health monitoring extension</h2>
 <div class="sectionbody">
 <div class="paragraph">
-<p>In the terminal window please execute the following command
-:</p>
+<p>In the terminal window please execute the following command:</p>
 </div>
 <div class="listingblock console-input">
 <div class="content">
@@ -212,7 +211,15 @@ You can access these endpoints also in your local at <a href="http://localhost:8
 we should also update the message content from an external service.</p>
 </div>
 <div class="paragraph">
-<p>To consume the external service we need to define an interface and register it as a REST client:</p>
+<p>To consume the external service we need to add the rest-client extension:</p>
+</div>
+<div class="listingblock console-input">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-config hljs" data-lang="config">./mvnw quarkus:add-extension -Dextensions="io.quarkus:quarkus-rest-client"</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>And now let&#8217;s define an interface and register it as a REST client:</p>
 </div>
 <div class="listingblock console-input">
 <div class="content">
@@ -364,7 +371,7 @@ For example, <code>quarkus-agroal</code> (that is used to manage Quarkus datasou
 <p>If you reload the context in DevMode (by pressing <code>s</code>), you would notice that your Kubernetes/OpenShift manifests have changed and take into account your new configuration.</p>
 </div>
 <div class="paragraph">
-<p>As the database readiness is already assessed, we can customize a startup probe to check the availability of the endpoint <code><a href="https://fourtonfish.com" class="bare">https://fourtonfish.com</a></code>:</p>
+<p>As the database readiness is already assessed, we can customize another readiness probe to check the availability of the endpoint <code><a href="https://fourtonfish.com" class="bare">https://fourtonfish.com</a></code>:</p>
 </div>
 <div class="listingblock console-input">
 <div class="content">
@@ -406,16 +413,10 @@ public class CustomHealthCheck {
 </table>
 </div>
 <div class="paragraph">
-<p>You can even offer a dedicated path to your probe implementation:</p>
-</div>
-<div class="listingblock console-input">
-<div class="content">
-<pre class="highlightjs highlight"><code class="language-config hljs" data-lang="config">quarkus.smallrye-health.startup-path=/health/customstart</code></pre>
-</div>
+<p>In dev mode, all your heath checks are visible in health UI: <a href="http://localhost:8080/q/health-ui/" class="bare">http://localhost:8080/q/health-ui/</a>.</p>
 </div>
 <div class="paragraph">
-<p>In dev mode, all your heath checks are visible in health UI: <a href="http://localhost:8080/q/health-ui/" class="bare">http://localhost:8080/q/health-ui/</a>.
-Also, the Quarkus Kubernetes/OpenShift extension will take into account your custom probe definitions when generating their YAML.</p>
+<p>Also, the Quarkus Kubernetes/OpenShift extension will take into account your custom probe definitions when generating their YAML.</p>
 </div>
 <div class="admonitionblock tip">
 <table>

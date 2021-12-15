@@ -324,7 +324,15 @@ Firstly, let&#8217;s create a configmap:</p>
 </div>
 <div class="listingblock console-input">
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">  oc set env --from=configmap/country-nl dc/greeting-app</code></pre>
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">oc set env --from=configmap/country-nl dc/greeting-app</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Rollout the latest <code>DeploymentConfig</code> using:</p>
+</div>
+<div class="listingblock console-input">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">oc rollout latest dc/greeting-app</code></pre>
 </div>
 </div>
 <div class="paragraph">
@@ -332,7 +340,7 @@ Firstly, let&#8217;s create a configmap:</p>
 </div>
 <div class="listingblock console-input">
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">  curl $ROUTE_URL/q/metrics</code></pre>
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">curl $ROUTE_URL/q/metrics</code></pre>
 </div>
 </div>
 </div>
