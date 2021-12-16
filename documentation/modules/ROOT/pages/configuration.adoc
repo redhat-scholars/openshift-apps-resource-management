@@ -157,6 +157,8 @@ Add the following database properties to your `application.properties` so that i
 ----
 # Configuration file
 # key = value
+
+quarkus.hibernate-orm.sql-load-script=import.sql
 quarkus.datasource.db-kind = postgresql <1>
 quarkus.container-image.builder=jib
 quarkus.hibernate-orm.database.generation = drop-and-create
