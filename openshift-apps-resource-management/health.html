@@ -219,6 +219,21 @@ we should also update the message content from an external service.</p>
 </div>
 </div>
 <div class="paragraph">
+<p>Implement a simple data access object (DTO) to help reading the data:</p>
+</div>
+<div class="listingblock console-input">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">package com.redhat.developers;
+
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+public class ExternalGreeting {
+    public String hello;
+}</code></pre>
+</div>
+</div>
+<div class="paragraph">
 <p>And now let&#8217;s define an interface and register it as a REST client:</p>
 </div>
 <div class="listingblock console-input">
@@ -240,7 +255,7 @@ public interface HelloService {
     @GET
     @Path("/")
     @Produces(MediaType.APPLICATION_JSON)
-    String getContent(@QueryParam("lang") String lang);
+    ExternalGreeting getContent(@QueryParam("lang") String lang);
 }</code></pre>
 </div>
 </div>
@@ -317,7 +332,7 @@ public class MessageInitializer {
         List&lt;Message&gt; messages = Message.findAll().list();
         for (Message message : messages) {
             String language = message.getLanguage();
-            greetingService.update(helloService.getContent(language), language); <i class="conum" data-value="5"></i><b>(5)</b>
+            greetingService.update(helloService.getContent(language).hello, language);
         }
         LOGGER.debug("End update of the db ");
     }
