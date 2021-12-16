@@ -84,6 +84,21 @@ To consume the external service we need to add the rest-client extension:
 ./mvnw quarkus:add-extension -Dextensions="io.quarkus:quarkus-rest-client"
 ----
 
+Implement a simple data access object (DTO) to help reading the data:
+
+[.console-input]
+[source,java]
+----
+package com.redhat.developers;
+
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+public class ExternalGreeting {
+    public String hello;
+}
+----
+
 And now let's define an interface and register it as a REST client:
 
 [.console-input]
@@ -106,7 +121,7 @@ public interface HelloService {
     @GET
     @Path("/")
     @Produces(MediaType.APPLICATION_JSON)
-    String getContent(@QueryParam("lang") String lang);
+    ExternalGreeting getContent(@QueryParam("lang") String lang);
 }
 ----
 
@@ -182,7 +197,7 @@ public class MessageInitializer {
         List<Message> messages = Message.findAll().list();
         for (Message message : messages) {
             String language = message.getLanguage();
-            greetingService.update(helloService.getContent(language), language); //<5>
+            greetingService.update(helloService.getContent(language).hello, language);
         }
         LOGGER.debug("End update of the db ");
     }
