@@ -307,6 +307,8 @@ Dev Services are enabled by default, but you can disable them by going to <code>
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-config hljs" data-lang="config"># Configuration file
 # key = value
+
+quarkus.hibernate-orm.sql-load-script=import.sql
 quarkus.datasource.db-kind = postgresql <i class="conum" data-value="1"></i><b>(1)</b>
 quarkus.container-image.builder=jib
 quarkus.hibernate-orm.database.generation = drop-and-create
