@@ -121,12 +121,12 @@ import java.net.URISyntaxException;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 
-@WithOpenShiftTestServer <1>
+@WithOpenShiftTestServer//<1>
 @QuarkusTest
 public class DeploymentConfigClientTest {
 
     @OpenShiftTestServer
-    private OpenShiftServer mockOpenShiftServer; <2>
+    private OpenShiftServer mockOpenShiftServer; //<2>
 
     private String pathToDeploymentConfig;
 

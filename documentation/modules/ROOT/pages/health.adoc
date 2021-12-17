@@ -60,9 +60,53 @@ will notice that it had changed. Your Deployment/DeploymentConfig resource will 
 
 TIP: You can access these endpoints also in your local at http://localhost:8080/q/health/ready or http://localhost:8080/q/health/live.
 
+== Default health checks
+
+In dev mode, all your heath checks are visible in health UI: http://localhost:8080/q/health-ui/.
+
+Some extensions may provide default health checks, including that the extension will automatically register its health checks.
+For example, `quarkus-agroal` (that is used to manage Quarkus datasources)  automatically registers a readiness health check that will validate each datasource.
+
+Quarkus has automatic readiness probes added when you use certain extensions:
+
+** *datasource*
+A probe to check database connection status.
+
+** *kafka*
+A probe to check kafka connection status. In this case you need to enable manually by setting quarkus.kafka.health.enabled to true.
+
+** *mongoDB*
+A probe to check MongoDB connection status.
+
+** *neo4j*
+A probe to check Neo4J connection status.
+
+** *artemis*
+A probe to check Artemis JMS connection status.
+
+** *kafka-streams*
+Liveness (for stream state) and Readiness (topics created) probes.
+
+** *vault*
+A probe to check Vault conection status.
+
+** *gRPC*
+A readiness probe for the gRPC services.
+
+** *Cassandra*
+A readiness probe to check Cassandra connection status.
+
+** *Redis*
+A readiness probe to check Redis connection status.
+
+
 == Customize integrations and startup configurations
 
-=== Add the REST CLient extension
+Let's assume that at application startup we insert some data in our database, but
+we should also update the message content from an external service.
+This type of scenario requires customizing health checks for the readiness probe to take into account the second dependency.
+
+=== Add the REST Client extension
 
 In the terminal window please execute the following command
 :
@@ -73,16 +117,6 @@ In the terminal window please execute the following command
 ----
 
 === Consuming a REST endpoint
-
-Let's assume that at application startup we insert some data in our database, but
-we should also update the message content from an external service.
-
-To consume the external service we need to add the rest-client extension:
-[.console-input]
-[source,config,subs="+macros,+attributes"]
-----
-./mvnw quarkus:add-extension -Dextensions="io.quarkus:quarkus-rest-client"
-----
 
 Implement a simple data access object (DTO) to help reading the data:
 
@@ -135,24 +169,25 @@ com.redhat.developers.HelloService/mp-rest/url=https://fourtonfish.com
 
 === Define actions at startup initialization
 
-Furthermore, we can use the previously defined endpoint to update our data using an intermediary class:
+Furthermore, we can use the previously defined endpoint to update our data using an intermediary repository:
 
 [.console-input]
 [source,java]
 ----
 package com.redhat.developers;
 
+import io.quarkus.hibernate.orm.panache.PanacheRepository;
 import io.quarkus.panache.common.Parameters;
 
 import javax.enterprise.context.ApplicationScoped;
 import javax.transaction.Transactional;
 
 @ApplicationScoped
-public class GreetingService {
+public class GreetingRepository implements PanacheRepository<Message> {
 
     @Transactional
     public int update(String content, String language) {
-        return Message.update("content= :content where language= :language ",
+        return update("content= :content where language= :language ",
                 Parameters.with("content", content)
                         .and("language", language));
     }
@@ -189,7 +224,7 @@ public class MessageInitializer {
     HelloService helloService; //<3>
 
     @Inject
-    GreetingService greetingService; //<4>
+    GreetingRepository repository; //<4>
 
     @PostConstruct
     public void init() {
@@ -197,7 +232,7 @@ public class MessageInitializer {
         List<Message> messages = Message.findAll().list();
         for (Message message : messages) {
             String language = message.getLanguage();
-            greetingService.update(helloService.getContent(language).hello, language);
+            repository.update(helloService.getContent(language).hello, language);
         }
         LOGGER.debug("End update of the db ");
     }
@@ -215,9 +250,6 @@ This code will be executed after initializing the database from `import.sql`.
 
 == Customize health endpoints and readiness probe
 
-Some extensions may provide default health checks, including that the extension will automatically register its health checks.
-For example, `quarkus-agroal` (that is used to manage Quarkus datasources)  automatically registers a readiness health check that will validate each datasource.
-
 You can change the root path to the health endpoints by setting the following property in `src/main/resources/application.properties`:
 
 [.console-input]
@@ -226,6 +258,7 @@ You can change the root path to the health endpoints by setting the following pr
 quarkus.smallrye-health.root-path=/health
 ----
 
+The Quarkus Kubernetes/OpenShift extension will take into account your custom probe definitions when generating their YAML.
 If you reload the context in DevMode (by pressing `s`), you would notice that your Kubernetes/OpenShift manifests have changed and take into account your new configuration.
 
 As the database readiness is already assessed, we can customize another readiness probe to check the availability of the endpoint `https://fourtonfish.com`:
@@ -262,10 +295,6 @@ public class CustomHealthCheck {
 <1> Annotate the method with `org.eclipse.microprofile.health.Readiness` to signal its implementation.
 <2> `UrlHealthCheck` checks if host is reachable using a Http URL connection.
 
-In dev mode, all your heath checks are visible in health UI: http://localhost:8080/q/health-ui/.
-
-Also, the Quarkus Kubernetes/OpenShift extension will take into account your custom probe definitions when generating their YAML.
-
 [TIP]
 ====
 Quarkus comes with some HealthCheck implementations for you to check status of different components:
@@ -274,38 +303,3 @@ Quarkus comes with some HealthCheck implementations for you to check status of d
 ** UrlHealthCheck: checks if host is reachable using a Http URL connection.
 ** InetAddressHealthCheck: checks if host is reachable using InetAddress.isReachable method.
 ====
-
-[NOTE]
-=====
-Quarkus has automatic readiness probes added when you use certain extensions: 
-
-*datasource*
-A probe to check database connection status.
-
-*kafka*
-A probe to check kafka connection status. In this case you need to enable manually by setting quarkus.kafka.health.enabled to true.
-
-*mongoDB*
-A probe to check MongoDB connection status.
-
-*neo4j*
-A probe to check Neo4J connection status.
-
-*artemis*
-A probe to check Artemis JMS connection status.
-
-*kafka-streams*
-Liveness (for stream state) and Readiness (topics created) probes.
-
-*vault*
-A probe to check Vault conection status.
-
-*gRPC*
-A readiness probe for the gRPC services.
-
-*Cassandra*
-A readiness probe to check Cassandra connection status.
-
-*Redis*
-A readiness probe to check Redis connection status.
-=====

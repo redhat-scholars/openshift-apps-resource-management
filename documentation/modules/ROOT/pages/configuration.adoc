@@ -159,14 +159,14 @@ Add the following database properties to your `application.properties` so that i
 # key = value
 
 quarkus.hibernate-orm.sql-load-script=import.sql
-quarkus.datasource.db-kind = postgresql <1>
+quarkus.datasource.db-kind = postgresql#<1>
 quarkus.container-image.builder=jib
 quarkus.hibernate-orm.database.generation = drop-and-create
 
 %dev.quarkus.hibernate-orm.log.sql=true
 %dev.quarkus.hibernate-orm.log.bind-param=true
 
-%prod.quarkus.datasource.username = ${POSTGRES_USERNAME:postgres} <2>
+%prod.quarkus.datasource.username = ${POSTGRES_USERNAME:postgres}#<2>
 %prod.quarkus.datasource.password = ${POSTGRES_PASSWORD:postgres}
 %prod.quarkus.datasource.jdbc.url = jdbc:postgresql://${POSTGRES_SERVER:postgres}:5432/postgres
 %prod.quarkus.hibernate-orm.log.sql = false

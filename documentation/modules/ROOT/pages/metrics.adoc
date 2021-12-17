@@ -21,7 +21,7 @@ package com.redhat.developers;
 
 import io.smallrye.config.ConfigMapping;
 
-@ConfigMapping(prefix = "global") <1>
+@ConfigMapping(prefix = "global")
 interface GlobalTagsConfig {
      String PROFILE = "profile";
      String REGION = "region";
@@ -106,7 +106,7 @@ public class GreetingResource {
     @Produces(MediaType.APPLICATION_JSON)
     @Consumes(MediaType.APPLICATION_JSON)
     @Transactional
-    @Timed(value = "greetings.creation", longTask = true, extraTags = {URI, API_GREET}) <1>
+    @Timed(value = "greetings.creation", longTask = true, extraTags = {URI, API_GREET})//<1>
     public Message create(Message message) {
         Message.persist(message);
         return message;
@@ -114,7 +114,7 @@ public class GreetingResource {
 
     @GET
     @Produces(MediaType.APPLICATION_JSON)
-    @Counted(value = "http.get.requests", extraTags = {URI, API_GREET}) <2>
+    @Counted(value = "http.get.requests", extraTags = {URI, API_GREET})//<2>
     public List<Message> findAll() {
         return Message.findAll().list();
     }
