@@ -136,7 +136,7 @@ Let&#8217;s define several common tags for the application, varying in value at 
 
 import io.smallrye.config.ConfigMapping;
 
-@ConfigMapping(prefix = "global") <i class="conum" data-value="1"></i><b>(1)</b>
+@ConfigMapping(prefix = "global")
 interface GlobalTagsConfig {
      String PROFILE = "profile";
      String REGION = "region";
@@ -230,7 +230,7 @@ public class GreetingResource {
     @Produces(MediaType.APPLICATION_JSON)
     @Consumes(MediaType.APPLICATION_JSON)
     @Transactional
-    @Timed(value = "greetings.creation", longTask = true, extraTags = {URI, API_GREET}) <i class="conum" data-value="1"></i><b>(1)</b>
+    @Timed(value = "greetings.creation", longTask = true, extraTags = {URI, API_GREET})<i class="conum" data-value="1"></i><b>(1)</b>
     public Message create(Message message) {
         Message.persist(message);
         return message;
@@ -238,7 +238,7 @@ public class GreetingResource {
 
     @GET
     @Produces(MediaType.APPLICATION_JSON)
-    @Counted(value = "http.get.requests", extraTags = {URI, API_GREET}) <i class="conum" data-value="2"></i><b>(2)</b>
+    @Counted(value = "http.get.requests", extraTags = {URI, API_GREET})<i class="conum" data-value="2"></i><b>(2)</b>
     public List&lt;Message&gt; findAll() {
         return Message.findAll().list();
     }

@@ -309,14 +309,14 @@ Dev Services are enabled by default, but you can disable them by going to <code>
 # key = value
 
 quarkus.hibernate-orm.sql-load-script=import.sql
-quarkus.datasource.db-kind = postgresql <i class="conum" data-value="1"></i><b>(1)</b>
+quarkus.datasource.db-kind = postgresql<i class="conum" data-value="1"></i><b>(1)</b>
 quarkus.container-image.builder=jib
 quarkus.hibernate-orm.database.generation = drop-and-create
 
 %dev.quarkus.hibernate-orm.log.sql=true
 %dev.quarkus.hibernate-orm.log.bind-param=true
 
-%prod.quarkus.datasource.username = ${POSTGRES_USERNAME:postgres} <i class="conum" data-value="2"></i><b>(2)</b>
+%prod.quarkus.datasource.username = ${POSTGRES_USERNAME:postgres}<i class="conum" data-value="2"></i><b>(2)</b>
 %prod.quarkus.datasource.password = ${POSTGRES_PASSWORD:postgres}
 %prod.quarkus.datasource.jdbc.url = jdbc:postgresql://${POSTGRES_SERVER:postgres}:5432/postgres
 %prod.quarkus.hibernate-orm.log.sql = false</code></pre>

@@ -190,10 +190,74 @@ You can access these endpoints also in your local at <a href="http://localhost:8
 </div>
 </div>
 <div class="sect1">
+<h2 id="_default_health_checks"><a class="anchor" href="#_default_health_checks"></a>Default health checks</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>In dev mode, all your heath checks are visible in health UI: <a href="http://localhost:8080/q/health-ui/" class="bare">http://localhost:8080/q/health-ui/</a>.</p>
+</div>
+<div class="paragraph">
+<p>Some extensions may provide default health checks, including that the extension will automatically register its health checks.
+For example, <code>quarkus-agroal</code> (that is used to manage Quarkus datasources)  automatically registers a readiness health check that will validate each datasource.</p>
+</div>
+<div class="paragraph">
+<p>Quarkus has automatic readiness probes added when you use certain extensions:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><strong>datasource</strong>
+A probe to check database connection status.</p>
+</li>
+<li>
+<p><strong>kafka</strong>
+A probe to check kafka connection status. In this case you need to enable manually by setting quarkus.kafka.health.enabled to true.</p>
+</li>
+<li>
+<p><strong>mongoDB</strong>
+A probe to check MongoDB connection status.</p>
+</li>
+<li>
+<p><strong>neo4j</strong>
+A probe to check Neo4J connection status.</p>
+</li>
+<li>
+<p><strong>artemis</strong>
+A probe to check Artemis JMS connection status.</p>
+</li>
+<li>
+<p><strong>kafka-streams</strong>
+Liveness (for stream state) and Readiness (topics created) probes.</p>
+</li>
+<li>
+<p><strong>vault</strong>
+A probe to check Vault conection status.</p>
+</li>
+<li>
+<p><strong>gRPC</strong>
+A readiness probe for the gRPC services.</p>
+</li>
+<li>
+<p><strong>Cassandra</strong>
+A readiness probe to check Cassandra connection status.</p>
+</li>
+<li>
+<p><strong>Redis</strong>
+A readiness probe to check Redis connection status.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
 <h2 id="_customize_integrations_and_startup_configurations"><a class="anchor" href="#_customize_integrations_and_startup_configurations"></a>Customize integrations and startup configurations</h2>
 <div class="sectionbody">
+<div class="paragraph">
+<p>Let&#8217;s assume that at application startup we insert some data in our database, but
+we should also update the message content from an external service.
+This type of scenario requires customizing health checks for the readiness probe to take into account the second dependency.</p>
+</div>
 <div class="sect2">
-<h3 id="_add_the_rest_client_extension"><a class="anchor" href="#_add_the_rest_client_extension"></a>Add the REST CLient extension</h3>
+<h3 id="_add_the_rest_client_extension"><a class="anchor" href="#_add_the_rest_client_extension"></a>Add the REST Client extension</h3>
 <div class="paragraph">
 <p>In the terminal window please execute the following command
 :</p>
@@ -206,18 +270,6 @@ You can access these endpoints also in your local at <a href="http://localhost:8
 </div>
 <div class="sect2">
 <h3 id="_consuming_a_rest_endpoint"><a class="anchor" href="#_consuming_a_rest_endpoint"></a>Consuming a REST endpoint</h3>
-<div class="paragraph">
-<p>Let&#8217;s assume that at application startup we insert some data in our database, but
-we should also update the message content from an external service.</p>
-</div>
-<div class="paragraph">
-<p>To consume the external service we need to add the rest-client extension:</p>
-</div>
-<div class="listingblock console-input">
-<div class="content">
-<pre class="highlightjs highlight"><code class="language-config hljs" data-lang="config">./mvnw quarkus:add-extension -Dextensions="io.quarkus:quarkus-rest-client"</code></pre>
-</div>
-</div>
 <div class="paragraph">
 <p>Implement a simple data access object (DTO) to help reading the data:</p>
 </div>
@@ -271,23 +323,24 @@ public interface HelloService {
 <div class="sect2">
 <h3 id="_define_actions_at_startup_initialization"><a class="anchor" href="#_define_actions_at_startup_initialization"></a>Define actions at startup initialization</h3>
 <div class="paragraph">
-<p>Furthermore, we can use the previously defined endpoint to update our data using an intermediary class:</p>
+<p>Furthermore, we can use the previously defined endpoint to update our data using an intermediary repository:</p>
 </div>
 <div class="listingblock console-input">
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">package com.redhat.developers;
 
+import io.quarkus.hibernate.orm.panache.PanacheRepository;
 import io.quarkus.panache.common.Parameters;
 
 import javax.enterprise.context.ApplicationScoped;
 import javax.transaction.Transactional;
 
 @ApplicationScoped
-public class GreetingService {
+public class GreetingRepository implements PanacheRepository&lt;Message&gt; {
 
     @Transactional
     public int update(String content, String language) {
-        return Message.update("content= :content where language= :language ",
+        return update("content= :content where language= :language ",
                 Parameters.with("content", content)
                         .and("language", language));
     }
@@ -324,7 +377,7 @@ public class MessageInitializer {
     HelloService helloService; <i class="conum" data-value="3"></i><b>(3)</b>
 
     @Inject
-    GreetingService greetingService; <i class="conum" data-value="4"></i><b>(4)</b>
+    GreetingRepository repository; <i class="conum" data-value="4"></i><b>(4)</b>
 
     @PostConstruct
     public void init() {
@@ -332,7 +385,7 @@ public class MessageInitializer {
         List&lt;Message&gt; messages = Message.findAll().list();
         for (Message message : messages) {
             String language = message.getLanguage();
-            greetingService.update(helloService.getContent(language).hello, language);
+            repository.update(helloService.getContent(language).hello, language);
         }
         LOGGER.debug("End update of the db ");
     }
@@ -371,10 +424,6 @@ This code will be executed after initializing the database from <code>import.sql
 <h2 id="_customize_health_endpoints_and_readiness_probe"><a class="anchor" href="#_customize_health_endpoints_and_readiness_probe"></a>Customize health endpoints and readiness probe</h2>
 <div class="sectionbody">
 <div class="paragraph">
-<p>Some extensions may provide default health checks, including that the extension will automatically register its health checks.
-For example, <code>quarkus-agroal</code> (that is used to manage Quarkus datasources)  automatically registers a readiness health check that will validate each datasource.</p>
-</div>
-<div class="paragraph">
 <p>You can change the root path to the health endpoints by setting the following property in <code>src/main/resources/application.properties</code>:</p>
 </div>
 <div class="listingblock console-input">
@@ -383,7 +432,8 @@ For example, <code>quarkus-agroal</code> (that is used to manage Quarkus datasou
 </div>
 </div>
 <div class="paragraph">
-<p>If you reload the context in DevMode (by pressing <code>s</code>), you would notice that your Kubernetes/OpenShift manifests have changed and take into account your new configuration.</p>
+<p>The Quarkus Kubernetes/OpenShift extension will take into account your custom probe definitions when generating their YAML.
+If you reload the context in DevMode (by pressing <code>s</code>), you would notice that your Kubernetes/OpenShift manifests have changed and take into account your new configuration.</p>
 </div>
 <div class="paragraph">
 <p>As the database readiness is already assessed, we can customize another readiness probe to check the availability of the endpoint <code><a href="https://fourtonfish.com" class="bare">https://fourtonfish.com</a></code>:</p>
@@ -427,12 +477,6 @@ public class CustomHealthCheck {
 </tr>
 </table>
 </div>
-<div class="paragraph">
-<p>In dev mode, all your heath checks are visible in health UI: <a href="http://localhost:8080/q/health-ui/" class="bare">http://localhost:8080/q/health-ui/</a>.</p>
-</div>
-<div class="paragraph">
-<p>Also, the Quarkus Kubernetes/OpenShift extension will take into account your custom probe definitions when generating their YAML.</p>
-</div>
 <div class="admonitionblock tip">
 <table>
 <tr>
@@ -455,60 +499,6 @@ public class CustomHealthCheck {
 <p>InetAddressHealthCheck: checks if host is reachable using InetAddress.isReachable method.</p>
 </li>
 </ul>
-</div>
-</td>
-</tr>
-</table>
-</div>
-<div class="admonitionblock note">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-note" title="Note"></i>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>Quarkus has automatic readiness probes added when you use certain extensions:</p>
-</div>
-<div class="paragraph">
-<p><strong>datasource</strong>
-A probe to check database connection status.</p>
-</div>
-<div class="paragraph">
-<p><strong>kafka</strong>
-A probe to check kafka connection status. In this case you need to enable manually by setting quarkus.kafka.health.enabled to true.</p>
-</div>
-<div class="paragraph">
-<p><strong>mongoDB</strong>
-A probe to check MongoDB connection status.</p>
-</div>
-<div class="paragraph">
-<p><strong>neo4j</strong>
-A probe to check Neo4J connection status.</p>
-</div>
-<div class="paragraph">
-<p><strong>artemis</strong>
-A probe to check Artemis JMS connection status.</p>
-</div>
-<div class="paragraph">
-<p><strong>kafka-streams</strong>
-Liveness (for stream state) and Readiness (topics created) probes.</p>
-</div>
-<div class="paragraph">
-<p><strong>vault</strong>
-A probe to check Vault conection status.</p>
-</div>
-<div class="paragraph">
-<p><strong>gRPC</strong>
-A readiness probe for the gRPC services.</p>
-</div>
-<div class="paragraph">
-<p><strong>Cassandra</strong>
-A readiness probe to check Cassandra connection status.</p>
-</div>
-<div class="paragraph">
-<p><strong>Redis</strong>
-A readiness probe to check Redis connection status.</p>
 </div>
 </td>
 </tr>
