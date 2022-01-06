@@ -9,5 +9,5 @@
 ** xref:resources.adoc[Adjust resource quotas]
 ** xref:separate.adoc[Test configurations]
 ** xref:metrics.adoc[Tailor metrics]
-
+** xref:monitoring.adoc[Sizing resource limits]
 

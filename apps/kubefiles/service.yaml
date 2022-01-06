@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: quarkus-next
+  labels:
+    app: quarkus-next    
+spec:
+  ports:
+  - name: http
+    port: 8080
+  selector:
+    app: quarkus-next
+  type: LoadBalancer

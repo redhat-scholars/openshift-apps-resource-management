@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: memconsume
+  name: memconsume
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: memconsume
+  template:
+    metadata:
+      labels:
+        app: memconsume
+    spec:
+      containers:
+      - name: memconsume
+        image: quay.io/rhdevelopers/myboot:v1
+        imagePullPolicy: Always
+        ports:
+          - containerPort: 8080
+        resources:
+          requests: 
+            memory: "400Mi" 
+            cpu: "250m" # 1/4 core
+          limits:
+            memory: "500Mi"
+            cpu: "1000m" # 1 core

@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: quarkus-next
+  name: quarkus-next-5
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: quarkus-next
+  template:
+    metadata:
+      labels:
+        app: quarkus-next
+    spec:
+      containers:
+      - name: quarkus
+        image: quay.io/rhdevelopers/mem-consumer:1.0.0-SNAPSHOT
+        imagePullPolicy: Always
+        ports:
+          - containerPort: 8080
