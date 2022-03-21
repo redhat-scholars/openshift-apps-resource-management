@@ -2,25 +2,28 @@ runtime:
   cache_dir: ./.cache/antora
 
 site:
-  url: https://redhat-scholars.github.io
+  title: Cloud Native Tutorials
+  url: https://redhat-scholars.github.io/
   start_page: openshift-apps-resource-management::index.adoc
 
 content:
   sources:
-    - url: ./
-      branches: HEAD
+    - url: git@github.com:redhat-scholars/openshift-apps-resource-management.git
       start_path: documentation
 
 asciidoc:
   attributes:
+    experimental: true
     release-version: master
     page-pagination: true
   extensions:
     - ./lib/tab-block.js
     - ./lib/remote-include-processor.js
+
 ui:
   bundle:
     url: https://github.com/redhat-developer-demos/rhd-tutorial-ui/releases/download/v0.1.9/ui-bundle.zip
+    snapshot: true
   supplemental_files:
     - path: ./supplemental-ui
     - path: .nojekyll
