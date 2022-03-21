@@ -17,6 +17,7 @@ asciidoc:
     quarkus-version: 2.5.0.Final
     graalvm-version: 21.3.0
     project-name: tutorial-app
+    experiment: true
     page-pagination: true
   extensions:
     - ./lib/tab-block.js
