@@ -3,11 +3,11 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>Bootstrap the project :: Efficient Resource Management with OpenShift</title>
-    <link rel="canonical" href="https://redhat-scholars.github.io/openshift-apps-resource-management/starter.html">
+    <title>Bootstrap the project</title>
+    <link rel="canonical" href="https://redhat-scholars.github.io/openshift-apps-resource-management/openshift-apps-resource-management/starter.html">
     <link rel="prev" href="setup.html">
     <link rel="next" href="configuration.html">
-    <meta name="generator" content="Antora 2.3.1">
+    <meta name="generator" content="Antora 3.0.0">
     <link rel="stylesheet" href="../_/css/site.css">
   </head>
   <body class="article">
@@ -15,7 +15,7 @@
   <nav class="navbar">
     <div class="navbar-brand">
       <a class="navbar-item" href="https://developers.redhat.com" target="_blank"><img src="../_/img/NewRHDFullLogo_4-color_white-wordmark.png" height="40px" alt="Red Hat Developer Program"></a>
-      <a class="navbar-item" style="font-size: 24px; color: white" href="https://redhat-scholars.github.io">Efficient Resource Management with OpenShift</a>
+      <a class="navbar-item" style="font-size: 24px; color: white" href="https://redhat-scholars.github.io/openshift-apps-resource-management"></a>
       <button class="navbar-burger" data-target="topbar-nav">
         <span></span>
         <span></span>
@@ -262,7 +262,7 @@ Native compilation will take few minutes to complete.
 </div>
 <div id="basics-build-run-native-app" class="listingblock console-input">
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">./target/tutorial-app-1.0-SNAPSHOT-runner</code></pre>
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">./target/{project-name}-1.0-SNAPSHOT-runner</code></pre>
 </div>
 </div>
 </div>
@@ -289,8 +289,8 @@ Native compilation will take few minutes to complete.
 </div>
 <div id="basics-build-run-native-docker-app" class="listingblock console-input">
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">docker build -f src/main/docker/Dockerfile.native -t example/tutorial-app:1.0-SNAPSHOT .
-docker run -it --rm -p 8080:8080 example/tutorial-app:1.0-SNAPSHOT</code></pre>
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">docker build -f src/main/docker/Dockerfile.native -t example/{project-name}:1.0-SNAPSHOT .
+docker run -it --rm -p 8080:8080 example/{project-name}:1.0-SNAPSHOT</code></pre>
 </div>
 </div>
 </div>
