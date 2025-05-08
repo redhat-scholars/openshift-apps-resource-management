@@ -51,9 +51,9 @@ Please have them installed and configured before you get started with any of the
 | `dnf install docker`
 | https://www.docker.com/products/docker-desktop[Docker Desktop for Windows, window="_blank"]
 
-| **Java 11**
+| **Java 21**
 | `brew tap AdoptOpenJDK/openjdk && brew cask install adoptopenjdk11`
-| `dnf install java-11-openjdk.x86_64`
+| `dnf install java-21-openjdk.x86_64`
 | https://adoptopenjdk.net[Windows] (Make sure you set the `JAVA_HOME` environment variable and add `%JAVA_HOME%\bin` to your `PATH`)
 
 | **Apache Maven 3.8.1+**

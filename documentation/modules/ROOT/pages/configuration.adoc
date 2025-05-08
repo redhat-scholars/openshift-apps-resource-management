@@ -13,8 +13,8 @@ package com.redhat.developers;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
+import jakarta.persistence.Entity;
 
-import javax.persistence.Entity;
 
 @Entity
 @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -74,10 +74,17 @@ As we want to interact more with our application, let's change the behavior of t
 ----
 package com.redhat.developers;
 
-import javax.transaction.Transactional;
-import javax.ws.rs.*;
-import javax.ws.rs.core.MediaType;
+
 import java.util.List;
+
+import jakarta.transaction.Transactional;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.POST;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.core.MediaType;
+
 
 @Path("messages")
 public class GreetingResource {
@@ -112,14 +119,14 @@ package com.redhat.developers;
 
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
+
 import org.junit.jupiter.api.Test;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.CoreMatchers.notNullValue;
 
 @QuarkusTest
-public class GreetingResourceTest {
-
+class GreetingResourceTest {
     @Test
     public void testCreate() {
         Message message = new Message();
@@ -180,10 +187,10 @@ Create `import.sql` file in `src/main/resources` with the following content:
 [.console-input]
 [source,sql]
 ----
-insert into Message(content, country, language, id) values('Hello', 'United Kingdom', 'en', nextval('hibernate_sequence'));
-insert into Message(content, country, language, id) values('Hola', 'Spain', 'es', nextval('hibernate_sequence'));
-insert into Message(content, country, language, id) values('Salut', 'Romania', 'ro', nextval('hibernate_sequence'));
-insert into Message(content, country, language, id) values('Bonjour', 'France', 'fr', nextval('hibernate_sequence'));
+insert into Message(content, country, language, id) values('Hello', 'United Kingdom', 'en', 1);
+insert into Message(content, country, language, id) values('Hola', 'Spain', 'es', 2);
+insert into Message(content, country, language, id) values('Salut', 'Romania', 'ro', 3);
+insert into Message(content, country, language, id) values('Bonjour', 'France', 'fr', 4);
 ----
 
 == Setting up a test profile

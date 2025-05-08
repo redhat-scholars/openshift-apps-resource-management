@@ -27,13 +27,12 @@ The generated project contains an endpoint GreetingResource. You can customize t
 [.console-input]
 [source,bash,subs="+macros,+attributes"]
 ----
-mvn quarkus:add-extension -Dextensions="quarkus-resteasy-jsonb,quarkus-jdbc-postgresql,quarkus-hibernate-orm-panache, quarkus-smallrye-openapi,quarkus-container-image-jib,quarkus-openshift"
+mvn quarkus:add-extension -Dextensions="quarkus-rest-jsonb,quarkus-jdbc-postgresql,quarkus-hibernate-orm-panache, quarkus-smallrye-openapi,quarkus-container-image-jib,quarkus-openshift"
 ----
 
 Using the above command will enrich the project to use the following Quarkus extensions:
 
-** `quarkus-resteasy-jsonb` to create JSON REST Services
-** `quarkus-rest-client` to consume a REST endpoint.
+** `quarkus-rest-jsonb` to create JSON REST Services
 ** `quarkus-smallrye-openapi` to document the exposed API
 ** `quarkus-jdbc-postgresql` to connect PosgreSQL database via JDBC
 ** `quarkus-hibernate-orm-panache` to simplify the code when interacting with Hibernate ORM.
