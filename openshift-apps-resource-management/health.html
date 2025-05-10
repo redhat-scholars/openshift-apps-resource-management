@@ -297,11 +297,13 @@ public class ExternalGreeting {
 
 import org.eclipse.microprofile.rest.client.inject.RegisterRestClient;
 
-import javax.ws.rs.GET;
-import javax.ws.rs.Path;
-import javax.ws.rs.Produces;
-import javax.ws.rs.QueryParam;
-import javax.ws.rs.core.MediaType;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.core.MediaType;
+
+
 
 @RegisterRestClient
 @Path("/hellosalut")
@@ -334,9 +336,9 @@ public interface HelloService {
 
 import io.quarkus.hibernate.orm.panache.PanacheRepository;
 import io.quarkus.panache.common.Parameters;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.transaction.Transactional;
 
-import javax.enterprise.context.ApplicationScoped;
-import javax.transaction.Transactional;
 
 @ApplicationScoped
 public class GreetingRepository implements PanacheRepository&lt;Message&gt; {
@@ -359,14 +361,15 @@ public class GreetingRepository implements PanacheRepository&lt;Message&gt; {
 
 import io.quarkus.arc.profile.UnlessBuildProfile;
 import io.quarkus.runtime.Startup;
+import jakarta.annotation.PostConstruct;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
+
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.PostConstruct;
-import javax.enterprise.context.ApplicationScoped;
-import javax.inject.Inject;
-import javax.transaction.Transactional;
+
 import java.util.List;
 
 @Startup <i class="conum" data-value="1"></i><b>(1)</b>
@@ -446,12 +449,13 @@ If you reload the context in DevMode (by pressing <code>s</code>), you would not
 <pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">package com.redhat.developers;
 
 import io.smallrye.health.checks.UrlHealthCheck;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.ws.rs.HttpMethod;
+
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.health.HealthCheck;
 import org.eclipse.microprofile.health.Readiness;
 
-import javax.enterprise.context.ApplicationScoped;
-import javax.ws.rs.HttpMethod;
 
 @ApplicationScoped
 public class CustomHealthCheck {
