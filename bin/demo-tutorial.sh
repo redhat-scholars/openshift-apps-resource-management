@@ -464,7 +464,32 @@ add_pom_dependency() {
 
 # =============================================================================== 6
 step_database() {
-  if oc get dc postgres >/dev/null 2>&1 || oc get deployment postgres >/dev/null 2>&1; then
+  # Checked before anything is created, so a bad PG_VERSION fails immediately instead of
+  # leaving a DeploymentConfig whose image trigger can never resolve.
+  # The template default (10-el8) does not exist in the openshift namespace any more.
+  if ! oc get istag "postgresql:$PG_VERSION" -n openshift >/dev/null 2>&1; then
+    bad "imagestreamtag postgresql:$PG_VERSION not found in the openshift namespace — pick another PG_VERSION"
+    oc get is postgresql -n openshift -o jsonpath='{range .spec.tags[*]}{.name}{"\n"}{end}' | sed 's/^/    /' >&2
+    return 1
+  fi
+
+  local have=""
+  oc get dc postgres         >/dev/null 2>&1 && have="dc/postgres"
+  oc get deployment postgres >/dev/null 2>&1 && have="deployment/postgres"
+
+  # An object can outlive the database behind it: a half-finished rollout, a Pod deleted
+  # by hand, a template instance whose DeploymentConfig never got past revision 0. Waiting
+  # on that only burns the 240s below and then reports "postgres pod is ready" as the
+  # failure, which looks nothing like the actual problem. Tear it down and start over.
+  if [[ -n "$have" ]] && ! pg_ready; then
+    note "$have exists but no postgres Pod is ready — recreating the template instance"
+    run oc delete dc,rc,deployment,svc,secret -l template=postgresql-ephemeral-template \
+      --ignore-not-found || true
+    oc delete dc postgres svc postgres secret postgres --ignore-not-found >/dev/null 2>&1 || true
+    have=""
+  fi
+
+  if [[ -n "$have" ]]; then
     ok "postgres already present in $NAMESPACE"
   else
     banner "This is what the Software Catalog form does behind the scenes"
@@ -477,16 +502,24 @@ step_database() {
       | oc apply -f -
   fi
 
-  # The template default (10-el8) does not exist in the openshift namespace any more.
-  if ! oc get istag "postgresql:$PG_VERSION" -n openshift >/dev/null 2>&1; then
-    bad "imagestreamtag postgresql:$PG_VERSION not found in the openshift namespace — pick another PG_VERSION"
-    oc get is postgresql -n openshift -o jsonpath='{range .spec.tags[*]}{.name}{"\n"}{end}' | sed 's/^/    /'
+  if ! wait_for 240 "postgres pod is ready" pg_ready; then
+    banner "postgres diagnostics"
+    run oc get dc postgres || true
+    oc get dc postgres -o jsonpath='{range .status.conditions[*]}{.type}: {.status} {.message}{"\n"}{end}' 2>/dev/null \
+      | sed 's/^/    /' >&2
+    run oc get pods -l name=postgres || true
+    oc describe dc postgres 2>/dev/null | sed -n '/Events:/,$p' | sed 's/^/    /' >&2
+    oc get events --field-selector reason=FailedCreate -o json 2>/dev/null \
+      | jq -r '.items[-3:][]?.message // empty' | sed 's/^/    /' >&2
     return 1
   fi
-
-  wait_for 240 "postgres pod is ready" \
-    bash -c "oc get pods -l name=postgres -o jsonpath='{.items[*].status.containerStatuses[*].ready}' | grep -q true"
   run oc get pods -l name=postgres
+}
+
+# True when a postgres Pod from the template is serving.
+pg_ready() {
+  oc get pods -l name=postgres -o jsonpath='{.items[*].status.containerStatuses[*].ready}' 2>/dev/null \
+    | grep -q true
 }
 
 # =============================================================================== 7
@@ -1131,7 +1164,11 @@ step_cleanup() {
     -l app.kubernetes.io/name=tutorial-app --ignore-not-found || true
   run oc delete cm country-nl --ignore-not-found || true
   run oc delete is "$IMAGE_NAME" --ignore-not-found || true
-  run oc delete all,secret,cm,pvc -l template=postgresql-ephemeral-template --ignore-not-found || true
+  # Explicit types rather than 'all': that category expands to CRDs this user cannot list
+  # (applications.app.k8s.io on the Sandbox), so oc ends with a Forbidden error and exit 1
+  # even though every object was in fact deleted — alarming, and it hides real failures.
+  run oc delete dc,rc,deployment,svc,route,pod,secret,cm,pvc \
+    -l template=postgresql-ephemeral-template --ignore-not-found || true
 
   say "leftovers in $NAMESPACE (should be empty of tutorial objects):"
   oc get deployment,dc,svc,route,hpa 2>/dev/null | sed 's/^/    /' || true
