@@ -232,6 +232,23 @@ curl localhost:8080/consume
 
 After that, you'll be exited from inside the container as it was restarted because of the memory limit.
 
+[NOTE]
+====
+Your shell is dropped with `command terminated with exit code 137`. Exit code 137 is
+`128 + 9`, meaning the process received `SIGKILL`.
+
+The shell and the `curl` you launched run inside the container's cgroup, so they count
+against the same 500Mi limit and are themselves candidates for the kernel's OOM killer —
+in practice they are killed *first*, a second or two before the JVM is. So the session
+dies, and the container follows moments later. Give it a few seconds before running the
+`describe` below, otherwise `Last State` may still be empty.
+
+If you script this rather than typing it interactively, drive the endpoint from outside
+the container (`kubectl port-forward <pod> 18080:8080` and then
+`curl localhost:18080/consume`). That leaves the JVM as the only process allocating
+memory, and the container is reliably the one that gets killed.
+====
+
 Run the following command to check that an `OOM` error was thrown:
 
 [.console-input]

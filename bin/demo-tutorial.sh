@@ -117,6 +117,14 @@ wait_for() {
 
 mvnw() { (cd "$APP_DIR" && ./mvnw -B "$@"); }
 
+# True as soon as any memconsume container is, or has been, OOMKilled. Queried by label
+# rather than by pod name: under node memory pressure the kubelet sometimes evicts the
+# whole Pod instead of restarting the container, and the replacement has a new name.
+oom_seen() {
+  kubectl get pods -l app=memconsume -o jsonpath='{range .items[*]}{.status.containerStatuses[0].lastState.terminated.reason}{"\n"}{.status.containerStatuses[0].state.terminated.reason}{"\n"}{end}' 2>/dev/null \
+    | grep -q OOMKilled
+}
+
 # Waits for the rollout and, on failure, dumps what the scheduler/kubelet objected to
 # instead of leaving a bare "timed out" behind.
 wait_rollout() {
@@ -985,15 +993,47 @@ step_limits_demos() {
   if [[ "$SKIP_SLOW" == "1" ]]; then
     note "SKIP_SLOW=1 — skipping the OOMKill wait"
   else
+    # Start from a clean slate, otherwise a Terminating Pod from an earlier run can win
+    # the '{.items[0]}' lottery below and we end up driving a container that is going away.
+    run kubectl delete -f "$KUBEFILES/oom-killed-deployment.yaml" --ignore-not-found
+    wait_for 120 "no leftover memconsume Pod" \
+      bash -c '[ -z "$(kubectl get pods -l app=memconsume -o name 2>/dev/null)" ]'
     run kubectl apply -f "$KUBEFILES/oom-killed-deployment.yaml"
     wait_for 180 "memconsume pod is running" \
-      bash -c "kubectl get pods -l app=memconsume -o jsonpath='{.items[0].status.containerStatuses[0].ready}' | grep -q true"
-    local pod; pod=$(kubectl get pods -l app=memconsume -o jsonpath='{.items[0].metadata.name}')
-    say "asking $pod to consume memory"
-    kubectl exec "$pod" -- curl -s --max-time 30 localhost:8080/consume >/dev/null 2>&1 || true
-    if wait_for 420 "container was OOMKilled" \
-         bash -c "kubectl get pod $pod -o jsonpath='{.status.containerStatuses[0].lastState.terminated.reason}' | grep -q OOMKilled"; then
-      kubectl get pod "$pod" -o jsonpath='{.status.containerStatuses[0].lastState.terminated}' | jq . | sed 's/^/    /'
+      bash -c "kubectl get pods -l app=memconsume --field-selector=status.phase=Running -o jsonpath='{.items[0].status.containerStatuses[0].ready}' | grep -q true"
+
+    # The chapter has the student exec in and curl from there. That works interactively,
+    # but a curl running inside the container shares its cgroup and is itself a candidate
+    # for the OOM killer — it is usually the first process killed ("command terminated
+    # with exit code 137") while the JVM survives. Driving the endpoint through a
+    # port-forward leaves the JVM as the only allocator, so the container is the one that
+    # gets killed. Retried, because the port-forward dies with the JVM it just killed and
+    # an unlucky first attempt can lose the request before the allocation starts.
+    local attempt pod pf
+    for attempt in 1 2 3; do
+      pod=$(kubectl get pods -l app=memconsume --field-selector=status.phase=Running \
+              -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
+      if [[ -z "$pod" ]]; then sleep 10; continue; fi
+      say "attempt $attempt — asking $pod to consume memory, from outside the container"
+      kubectl port-forward "$pod" 18080:8080 >"$WORKDIR/oom-portforward.log" 2>&1 &
+      pf=$!
+      sleep 4
+      curl -s -m 120 -o /dev/null "http://localhost:18080/consume" || true
+      kill "$pf" 2>/dev/null || true
+      wait "$pf" 2>/dev/null || true
+      sleep 10
+      oom_seen && break
+      note "no OOMKill recorded yet — retrying"
+    done
+
+    if wait_for 120 "container was OOMKilled" oom_seen; then
+      kubectl get pods -l app=memconsume -o jsonpath='{range .items[*]}{.metadata.name}{"  restarts="}{.status.containerStatuses[0].restartCount}{"  reason="}{.status.containerStatuses[0].lastState.terminated.reason}{"  exitCode="}{.status.containerStatuses[0].lastState.terminated.exitCode}{"\n"}{end}' \
+        | sed 's/^/    /' >&2
+    else
+      run kubectl get pods -l app=memconsume
+      kubectl describe pod -l app=memconsume 2>/dev/null | sed -n '/Events:/,$p' | sed 's/^/    /' >&2
+      say "port-forward log:"
+      sed 's/^/    /' "$WORKDIR/oom-portforward.log" >&2
     fi
     run kubectl delete -f "$KUBEFILES/oom-killed-deployment.yaml" --ignore-not-found
   fi
