@@ -23,16 +23,19 @@
 #   REGISTRY_ORG     organisation                (default: your registry login)
 #   IMAGE_NAME       image name                  (default: greeting-app)
 #   PG_VERSION       postgresql imagestream tag  (default: 15-el9)
-#   GREETING_MODE    cluster | public            (default: cluster)
-#   GREETING_URL     use this URL, deploy nothing(default: the Route of the deployed one)
+#   GREETING_MODE    public | cluster            (default: public)
+#   GREETING_URL     use this URL, deploy nothing(default: per GREETING_MODE)
 #   SKIP_SLOW        1 = skip the OOMKill wait   (default: 0)
 #
-# GREETING_MODE=cluster builds and deploys apps/greeting-api into the namespace and points
-# the tutorial application at its Route. That is the documented setup and it removes the
-# dependency on a third-party website — MessageInitializer calls the greeting URL from a
-# @Startup hook, so an unreachable host means the application does not boot at all.
-# GREETING_MODE=public uses hellosalut.stefanbohacek.com instead, to check that the fallback
-# documented in health.adoc still works.
+# GREETING_MODE=public is the default because health.adoc still sends students to
+# hellosalut.stefanbohacek.com, and this script exists to rehearse what they actually do.
+# Be aware of what that means: MessageInitializer calls the greeting URL from a @Startup
+# hook, so if the host is unreachable the application does not boot at all and step 7 fails.
+#
+# GREETING_MODE=cluster instead builds and deploys apps/greeting-api into the namespace and
+# points the application at its Route, removing the third-party dependency. That service is
+# not mentioned anywhere in the tutorial yet — it is staged for a later switch — so use this
+# mode to exercise it, not to rehearse the student path. See apps/greeting-api/README.md.
 #
 # IMAGE_MODE=quay is the default because it is the path the documentation describes —
 # Jib builds the image locally and pushes it to quay.io. Run `podman login quay.io`
@@ -53,7 +56,7 @@ REGISTRY=${REGISTRY:-quay.io}
 REGISTRY_ORG=${REGISTRY_ORG:-myrepo}
 IMAGE_NAME=${IMAGE_NAME:-greeting-app}
 PG_VERSION=${PG_VERSION:-15-el9}
-GREETING_MODE=${GREETING_MODE:-cluster}
+GREETING_MODE=${GREETING_MODE:-public}
 GREETING_URL=${GREETING_URL:-}
 PUBLIC_GREETING_URL=https://hellosalut.stefanbohacek.com
 SKIP_SLOW=${SKIP_SLOW:-0}
@@ -630,11 +633,11 @@ ensure_greeting_api() {
 resolve_greeting_url() {
   if [[ -n "$GREETING_URL" ]]; then
     ok "using the greeting service you supplied: $GREETING_URL"
-  elif [[ "$GREETING_MODE" == "public" ]]; then
-    GREETING_URL=$PUBLIC_GREETING_URL
-    note "GREETING_MODE=public — rehearsing the third-party fallback, not the documented setup"
-  else
+  elif [[ "$GREETING_MODE" == "cluster" ]]; then
+    note "GREETING_MODE=cluster — exercising apps/greeting-api, which health.adoc does not mention"
     ensure_greeting_api || return 1
+  else
+    GREETING_URL=$PUBLIC_GREETING_URL
   fi
 }
 
@@ -811,7 +814,8 @@ PROPS
           note "  if that does not help: sudo systemctl restart systemd-resolved"
         fi
       fi
-      note "this is exactly why GREETING_MODE defaults to 'cluster' — drop the override"
+      note "to take the third-party host out of the picture entirely, rerun with"
+      note "  GREETING_MODE=cluster — see apps/greeting-api/README.md"
     else
       run oc get pods -l app=greeting-api || true
       oc logs -l app=greeting-api --tail=20 2>/dev/null | sed 's/^/    /' >&2 || true
