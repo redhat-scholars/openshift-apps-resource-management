@@ -724,8 +724,34 @@ PROPS
   else
     note "fourtonfish.com answered $code (health.adoc says it redirects); recheck the chapter"
   fi
-  expect "hellosalut.stefanbohacek.com serves the JSON at /" '"hello"' \
-    "$(curl -s --max-time 20 'https://hellosalut.stefanbohacek.com/?lang=en')"
+  # Retried: this is a third-party API over the venue network, and MessageInitializer calls
+  # it during startup — if it is unreachable the application does not boot at all. A single
+  # failed probe means a blip; three in a row means the demo will not run.
+  local greeting="" try
+  for try in 1 2 3 4 5; do
+    greeting=$(curl -s --max-time 20 'https://hellosalut.stefanbohacek.com/?lang=en' || true)
+    [[ "$greeting" == *'"hello"'* ]] && break
+    note "attempt $try got nothing from hellosalut.stefanbohacek.com — retrying"
+    sleep 10
+  done
+  if [[ "$greeting" == *'"hello"'* ]]; then
+    ok "hellosalut.stefanbohacek.com serves the JSON at /"
+  else
+    bad "hellosalut.stefanbohacek.com unreachable after 5 attempts — the app will NOT start"
+    note "MessageInitializer calls this API with @Startup; a failure there aborts the boot."
+    # Almost always the local resolver rather than the site. Separating the two here saves
+    # a lot of time: if --resolve succeeds, the network is fine and DNS is the problem.
+    if getent hosts hellosalut.stefanbohacek.com >/dev/null 2>&1; then
+      note "DNS resolves, so the site itself is down or blocked"
+    else
+      note "DNS does NOT resolve the host — this is local, not the site. Checking directly:"
+      if curl -s --max-time 15 --resolve hellosalut.stefanbohacek.com:443:161.35.101.200 \
+           'https://hellosalut.stefanbohacek.com/?lang=en' | grep -q '"hello"'; then
+        note "  reachable when pinned to its IP => your resolver is the problem"
+        note "  try: sudo systemctl restart systemd-resolved"
+      fi
+    fi
+  fi
 
   run mvnw clean package -DskipTests
   expect "probe paths follow the custom root-path" "/health/started" \
@@ -750,6 +776,13 @@ PROPS
     local created; created=$(curl -s -X POST -H 'Content-Type: application/json' \
       -d '{"content":"Ciao","country":"Italy","language":"it"}' http://localhost:8080/messages)
     expect "POST succeeds — the sequence restart in import.sql works" '"id"' "$created"
+  else
+    # "still not true after 90s" says nothing about why. The reason is always in the log,
+    # and it is usually the external greeting API failing the @Startup hook.
+    banner "why the application did not start"
+    grep -m3 -E "Failed to start|Caused by" "$WORKDIR/health-run.log" 2>/dev/null \
+      | sed 's/^/    /' >&2 || true
+    note "full log: $WORKDIR/health-run.log"
   fi
   free_port_8080
   kill "$pf_pid" 2>/dev/null || true
