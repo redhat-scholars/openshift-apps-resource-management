@@ -117,6 +117,29 @@ wait_for() {
 
 mvnw() { (cd "$APP_DIR" && ./mvnw -B "$@"); }
 
+# Waits for the rollout and, on failure, dumps what the scheduler/kubelet objected to
+# instead of leaving a bare "timed out" behind.
+wait_rollout() {
+  local img; img=$(oc get deployment tutorial-app -o jsonpath='{.spec.template.spec.containers[0].image}' 2>/dev/null)
+  say "Deployment image: ${img:-<none>}"
+  if [[ "$IMAGE_MODE" == "quay" ]]; then
+    expect "image is pulled from ${REGISTRY}" "${REGISTRY}/${REGISTRY_ORG}/${IMAGE_NAME}" "$img"
+  else
+    expect "image is pulled from the internal registry" \
+      "image-registry.openshift-image-registry.svc" "$img"
+  fi
+
+  must "rollout completed" oc rollout status deployment/tutorial-app --timeout=300s && return 0
+
+  banner "Rollout diagnostics"
+  run oc get pods -l app.kubernetes.io/name=tutorial-app
+  oc get pods -l app.kubernetes.io/name=tutorial-app \
+    -o jsonpath='{range .items[*]}{.metadata.name}: {.status.containerStatuses[0].state}{"\n"}{end}' 2>/dev/null | sed 's/^/    /' >&2
+  oc describe pod -l app.kubernetes.io/name=tutorial-app 2>/dev/null \
+    | sed -n '/Events:/,$p' | sed 's/^/    /' >&2
+  return 1
+}
+
 build_and_deploy() {
   if [[ "$IMAGE_MODE" == "quay" ]]; then
     banner "Jib build, push to ${REGISTRY}/${REGISTRY_ORG}/${IMAGE_NAME}, then deploy"
@@ -641,12 +664,29 @@ PROPS
 # =============================================================================== 8
 step_deploy() {
   local res="$APP_DIR/src/main/resources"
-  grep -q "quarkus.container-image.registry" "$res/application.properties" || cat >> "$res/application.properties" <<PROPS
+  # The registry/group/name trio is the documented quay.io + Jib path. It must NOT
+  # be set for the on-cluster build: the OpenShift builder pushes to an ImageStream
+  # named after the *application* (tutorial-app), while these properties would point
+  # the generated Deployment at quay.io/<group>/<name>. The result is a rollout that
+  # never completes, with ImagePullBackOff: unauthorized.
+  if [[ "$IMAGE_MODE" == "quay" ]]; then
+    grep -q "quarkus.container-image.registry" "$res/application.properties" || cat >> "$res/application.properties" <<PROPS
 
 quarkus.container-image.registry=${REGISTRY}
 quarkus.container-image.group=${REGISTRY_ORG}
 quarkus.container-image.name=${IMAGE_NAME}
 quarkus.container-image.tag=1.0-SNAPSHOT
+PROPS
+  else
+    # Strip any leftovers from an earlier IMAGE_MODE=quay run, so re-running a single
+    # step does not resurrect a quay.io image reference the cluster cannot pull.
+    sed -i '/^quarkus\.container-image\.\(registry\|group\|name\)=/d' "$res/application.properties"
+    note "IMAGE_MODE=openshift: leaving container-image.registry/group/name unset so the"
+    note "Deployment resolves to the internal registry. Use IMAGE_MODE=quay to rehearse"
+    note "the path openshift.adoc actually documents."
+  fi
+
+  grep -q "quarkus.openshift.route.expose" "$res/application.properties" || cat >> "$res/application.properties" <<PROPS
 
 quarkus.openshift.route.expose=true
 quarkus.openshift.route.tls.termination=edge
@@ -654,7 +694,7 @@ quarkus.openshift.route.tls.insecure-edge-termination-policy=Redirect
 PROPS
 
   build_and_deploy || return 1
-  must "rollout completed" oc rollout status deployment/tutorial-app --timeout=300s || return 1
+  wait_rollout || return 1
 
   banner "Everything is named after the application, not after the image"
   run oc get deployment,svc,route -l app.kubernetes.io/name=tutorial-app
@@ -693,7 +733,7 @@ quarkus.openshift.resources.requests.memory=256Mi
 PROPS
 
   build_and_deploy || return 1
-  must "rollout completed" oc rollout status deployment/tutorial-app --timeout=300s || return 1
+  wait_rollout || return 1
 
   local actual; actual=$(oc get deployment tutorial-app \
     -o jsonpath='{.spec.template.spec.containers[0].resources}' | jq -S -c .)
@@ -895,7 +935,7 @@ global.country=${COUNTRY:Romania}
 PROPS
 
   build_and_deploy || return 1
-  must "rollout completed" oc rollout status deployment/tutorial-app --timeout=300s || return 1
+  wait_rollout || return 1
 
   local url; url="https://$(oc get route tutorial-app -o jsonpath='{.spec.host}')"
   curl -s "$url/messages" >/dev/null
