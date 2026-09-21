@@ -6,14 +6,28 @@ But these are only the initial values; when the service is running, you need to 
 
 Let's see how Prometheus can help us detect incorrect limits or set these values in services that have been running for a long time without any limitation.
 
+NOTE: This chapter was validated on OpenShift 4.21 running in the
+https://developers.redhat.com/developer-sandbox[Developer Sandbox], where you are a regular user of a
+single project. A few steps need cluster-wide privileges; each of them is called out with a
+`CLUSTER ADMIN` admonition and an alternative you can run as a normal user.
+
 == Understanding requests and limits with examples
 
-It's important to understand how Kubernetes behave when `request` or `limit` values are exceeded.
+It's important to understand how Kubernetes behaves when `request` or `limit` values are exceeded.
 
-=== Not enought resources
+=== Not enough resources
 
-The first thing to know is how much memory your nodes have available.
-To get it, run the following command:
+The first thing to know is how much memory you are allowed to use.
+
+On a cluster where you are an administrator, that is the memory of the nodes:
+
+[IMPORTANT]
+.CLUSTER ADMIN
+====
+The following command reads cluster-scoped objects. As a Developer Sandbox user it fails with
+`nodes is forbidden: User "<you>" cannot list resource "nodes" ... at the cluster scope`.
+Skip to the `ResourceQuota` command below.
+====
 
 [.console-input]
 [source,bash]
@@ -25,59 +39,73 @@ kubectl describe nodes | grep "Allocatable" -A 9
 [source,bash]
 ----
 Allocatable:
-  attachable-volumes-gce-pd:  127
-  cpu:                        7500m
-  ephemeral-storage:          123201474766
-  hugepages-1Gi:              0
-  hugepages-2Mi:              0
-  memory:                     31769340Ki // <1>
-  pods:                       250
-System Info:
-  Machine ID:                                       93b30f2ca161f73c8836cf5b4512a557
+  attachable-volumes-aws-ebs:  25
+  cpu:                         15500m
+  ephemeral-storage:           114381692328
+  hugepages-1Gi:               0
+  hugepages-2Mi:               0
+  memory:                      64304476Ki // <1>
+  pods:                        250
 --
 Allocatable:
-  attachable-volumes-gce-pd:  127
-  cpu:                        7500m
-  ephemeral-storage:          123201474766
-  hugepages-1Gi:              0
-  hugepages-2Mi:              0
-  memory:                     31769340Ki // <2>
-  pods:                       250
-System Info:
-  Machine ID:                             e2c254dff58fc0471bdd31f52cd8a910
---
-Allocatable:
-  attachable-volumes-gce-pd:  127
-  cpu:                        7500m
-  ephemeral-storage:          123201474766
-  hugepages-1Gi:              0
-  hugepages-2Mi:              0
-  memory:                     31769340Ki // <3>
-  pods:                       250
-System Info:
-  Machine ID:                              364895fb31072858f7079639cab92df8
+  attachable-volumes-aws-ebs:  25
+  cpu:                         15500m
+  ephemeral-storage:           114381692328
+  hugepages-1Gi:               0
+  hugepages-2Mi:               0
+  memory:                      64304476Ki // <2>
+  pods:                        250
 ----
 <1> Amount of memory on node 1
 <2> Amount of memory on node 2
-<3> Amount of memory on node 3
 
-In this case, we've got three nodes with 32Gb of memory each.
+On a multi-tenant cluster you are instead bounded by the `ResourceQuota` of your project, which is the
+number that actually matters to you:
 
-So let's see what happens when we deploy a container with `requests` value bigger than the available free memory.
+[.console-input]
+[source,bash]
+----
+kubectl describe resourcequota compute-deploy
+----
+
+[.console-output]
+[source,bash]
+----
+Name:       compute-deploy
+Namespace:  <your-namespace>
+Scopes:     NotTerminating
+ * Matches all pods that do not have an active deadline. These pods usually include long running pods whose container command is not expected to terminate.
+Resource                 Used   Hard
+--------                 ----   ----
+limits.cpu               1500m  30
+limits.memory            912Mi  30Gi // <1>
+limits.nvidia.com/gpu    0      0
+requests.cpu             110m   3
+requests.memory          768Mi  30Gi // <2>
+requests.nvidia.com/gpu  0      0
+----
+<1> The sum of all `limits.memory` in the project may not exceed 30Gi
+<2> The sum of all `requests.memory` in the project may not exceed 30Gi
+
+So let's see what happens when we deploy a container with a `requests` value bigger than the available free memory.
 
 [.console-input]
 [source,bash]
 .apps/kubefiles/not-enough-resources-deployment.yaml
 ----
 resources:
-    requests: 
-        memory: "300000Mi" # <1> 
+    requests:
+        memory: "25Gi" # <1>
         cpu: "250m" # 1/4 core
     limits:
-        memory: "900000Mi"
+        memory: "28Gi"
         cpu: "1000m" # 1 core
 ----
 <1> Requesting more memory than the free available in any node
+
+TIP: These values must stay *below* your quota but *above* the free memory of any single node,
+otherwise you get an admission error instead of the `Pending` status this section is about.
+Raise them if your cluster has bigger nodes.
 
 Apply the resource:
 
@@ -106,7 +134,7 @@ quarkus-next-5-5c56b868cf-djrr8   0/1     Pending   0          3s // <1>
 A container will be in `Pending` status until a new node is added to the cluster meeting the minimum requirements or freeing some resources from a node.
 If this happens, Kubernetes would automatically reschedule the Pod into that node.
 
-Run the following command to get information about pending status:
+Run the following command to get information about the pending status:
 
 [.console-input]
 [source,bash]
@@ -121,34 +149,52 @@ kubectl describe pod quarkus-next-5-5c56b868cf-djrr8
 Events:
   Type     Reason            Age   From               Message
   ----     ------            ----  ----               -------
-  Warning  FailedScheduling  15m   default-scheduler  0/3 nodes are available: 3 Insufficient memory.
-  Warning  FailedScheduling  14m   default-scheduler  0/3 nodes are available: 3 Insufficient memory.
+  Warning  FailedScheduling  15m   default-scheduler  0/24 nodes are available: 10 node(s) had untolerated taint(s), 14 Insufficient memory. preemption: 0/24 nodes are available: 24 No preemption victims found for incoming pod.
 ----
+
+[NOTE]
+====
+If instead of a `Pending` Pod you get no Pod at all and the following error, your request is larger
+than the project quota — the `ResourceQuota` admission plugin rejects the ReplicaSet before the
+scheduler ever sees it:
+
+[.console-output]
+[source,bash]
+----
+Error creating: pods "quarkus-next-5-..." is forbidden: exceeded quota: compute-deploy,
+requested: requests.memory=300000Mi, used: requests.memory=3712Mi, limited: requests.memory=30Gi
+----
+
+Lower the values in the manifest so they fit inside your quota.
+====
 
 === Clean Up
 
-Run the following command to undeploy current namespace:
+Run the following command to remove what you deployed in this section:
 
 [.console-input]
 [source,bash]
 ----
-kubectl delete all --all
+kubectl delete -f apps/kubefiles/not-enough-resources-deployment.yaml
 ----
+
+WARNING: Do not run `kubectl delete all --all`. It deletes *everything* in the project, including the
+`tutorial-app` and the PostgreSQL database you deployed in the previous chapters.
 
 === Exceeding limits memory
 
-Let's see what's happen when a Pod is running and the limit set is exceeded.
+Let's see what happens when a Pod is running and the limit set is exceeded.
 
 [.console-input]
 [source,bash]
 .apps/kubefiles/oom-killed-deployment.yaml
 ----
 resources:
-    requests: 
-        memory: "300Mi"
+    requests:
+        memory: "400Mi"
         cpu: "250m" # 1/4 core
     limits:
-        memory: "400Mi"
+        memory: "500Mi"
         cpu: "1000m" # 1 core
 ----
 
@@ -173,15 +219,16 @@ NAME                        READY   STATUS    RESTARTS   AGE
 memconsume-b588f8dc-78jsv   1/1     Running   0          28s
 ----
 
-This service has a special endpoint that consumes most of the memory-making the service consume more memory than the one set in the `limits` section:
+This service has a special endpoint that consumes most of the memory, making the service consume more memory than the one set in the `limits` section:
 
 [.console-input]
 [source,bash]
 ----
-kubectl exec -ti memconsume-b588f8dc-78jsv /bin/bash
+kubectl exec -ti memconsume-b588f8dc-78jsv -- /bin/bash # <1>
 
 curl localhost:8080/consume
 ----
+<1> The `--` separator is mandatory; `kubectl exec POD COMMAND` was removed.
 
 After that, you'll be exited from inside the container as it was restarted because of the memory limit.
 
@@ -205,12 +252,12 @@ Containers:
     Port:           8080/TCP
     Host Port:      0/TCP
     State:          Running
-      Started:      Wed, 22 Dec 2021 11:20:35 +0100
+      Started:      Sun, 21 Sep 2026 11:20:35 +0200
     Last State:     Terminated
       Reason:       OOMKilled // <1>
       Exit Code:    137
-      Started:      Wed, 22 Dec 2021 11:13:21 +0100
-      Finished:     Wed, 22 Dec 2021 11:20:34 +0100
+      Started:      Sun, 21 Sep 2026 11:13:21 +0200
+      Finished:     Sun, 21 Sep 2026 11:20:34 +0200
     Ready:          True
     Restart Count:  1
     Limits:
@@ -222,19 +269,17 @@ Containers:
     Environment:  <none>
 ...
 ----
-<1> Previous state was: killed because an out of memory
+<1> Previous state was: killed because of an out of memory
 
 So Kubernetes kills a container when it consumes more memory than the one set in the `limits` section.
 As there is a replica set, it's automatically restarted.
 
 === Clean Up
 
-Run the following command to undeploy current namespace:
-
 [.console-input]
 [source,bash]
 ----
-kubectl delete all --all
+kubectl delete -f apps/kubefiles/oom-killed-deployment.yaml
 ----
 
 === Overcommitment of memory
@@ -242,21 +287,21 @@ kubectl delete all --all
 So far, we've seen that when the requested memory is too high, the Pod is not scheduled.
 Also, we've seen that when a limit is exceeded, the Pod is restarted, but what's happening when you set a `limit` value greater than the available memory?
 
-Let's deploy two deployments where the sum of their limits are bigger than the available memory in the cluster:
+Let's deploy two deployments where the sum of their limits is bigger than the available memory in the cluster:
 
 [.console-input]
 [source,bash]
 .apps/kubefiles/sum-exceeding-deployments.yaml
 ----
 resources:
-    requests: 
+    requests:
         memory: "300Mi"
         cpu: "250m" # 1/4 core
     limits:
-        memory: "50000Mi" // <1>
+        memory: "14Gi" // <1>
         cpu: "1000m" # 1 core
 ----
-<1> Two deployments are set in the same file with same limits
+<1> Two deployments are set in the same file with the same limits
 
 [.console-input]
 [source,bash]
@@ -264,8 +309,8 @@ resources:
 kubectl apply -f apps/kubefiles/sum-exceeding-deployments.yaml
 ----
 
-Both Pods are running as they have enough requested resources. 
-`limits` are not used to impact Pod scheduler, only used at runtime to protect memory consumption.
+Both Pods are running as they have enough requested resources.
+`limits` are not used to impact the Pod scheduler, only used at runtime to protect memory consumption.
 
 [.console-input]
 [source,bash]
@@ -281,30 +326,44 @@ quarkus-next-5-6bd8686487-ht6gx   1/1     Running   0          10s
 quarkus-next-6-6bd8686487-q5ls6   1/1     Running   0          10s
 ----
 
-=== Clean Up
+Together the two Pods have committed 28Gi of memory limits while only asking for 600Mi of actual
+memory — that is exactly the overcommitment we will measure with Prometheus later in this chapter.
 
-Run the following command to undeploy current namespace:
+=== Clean Up
 
 [.console-input]
 [source,bash]
 ----
-kubectl delete all --all
+kubectl delete -f apps/kubefiles/sum-exceeding-deployments.yaml
 ----
 
 == Using Prometheus to size/update memory limits
 
 Let's see how Prometheus can help us detect incorrect limits or set these values in services running for a long time without any limitation.
 
-In the case of an OpenShift cluster, you can navigate to Observe -> Metrics to open the metrics console and run Prometheus queries.
+In the case of an OpenShift cluster, you can navigate to *Observe -> Metrics* to open the metrics console and run Prometheus queries.
 
 image::monitor.png[]
+
+[IMPORTANT]
+====
+OpenShift 4.21 replaced the *Developer* / *Administrator* perspectives with a single *Core platform*
+navigation, so *Observe -> Metrics* is now the only path to the query browser.
+
+The page opens on *All Projects*. If you are not a cluster administrator that returns
+`Access restricted` / `Bad Request`: use the *Project:* selector at the top of the page to switch to
+your own project before running any query.
+====
+
+In every query below, replace `<your-namespace>` with the project you are working in
+(`kubectl config view --minify -o jsonpath='{..namespace}'` prints it).
 
 === Detecting resources without memory limits
 
 One of the things you might want to detect sooner is any container without memory limits defined.
 
 Let's see how to use Prometheus to detect these containers.
-Let's deploy three services where one service has limits, and the other is without limits.
+Let's deploy three services where one service has limits, and the other two are without limits.
 
 [.console-input]
 [source,bash]
@@ -314,7 +373,7 @@ kubectl apply -f apps/kubefiles/no-resources-section-deployment.yaml
 kubectl apply -f apps/kubefiles/no-resources-section-deployment-2.yaml
 ----
 
-Let's check that all Pod are up and running: 
+Let's check that all Pods are up and running:
 
 [.console-input]
 [source,bash]
@@ -326,49 +385,83 @@ kubectl get pods
 [source,bash]
 ----
 NAME                              READY   STATUS    RESTARTS   AGE
-memconsume-58b6b94fbf-55hsw       1/1     Running   0          119s
-quarkus-next-5-64d7849864-ksln4   1/1     Running   0          118s
-quarkus-next-6-64d7849864-2bfj4   1/1     Running   0          14s
+memconsume-86874485-ht54w         1/1     Running   0          119s
+quarkus-next-5-596f665c7b-ttjkz   1/1     Running   0          118s
+quarkus-next-6-596f665c7b-sftwv   1/1     Running   0          14s
 ----
 
-`quarkus-next` pods are the ones without any limit.
+`quarkus-next` pods are the ones whose manifests declare no limit.
 
-Put the following PromQL expression into query editor and push *Run Queries* button.
+Put the following PromQL expression into the query editor and push the *Run queries* button.
 
 [.console-input]
 [source,bash]
 ----
-(count by (namespace,pod,container)(kube_pod_container_info{container!="", namespace='default'}) unless sum by (namespace,pod,container)(kube_pod_container_resource_limits{resource="memory"}))
+(count by (namespace,pod,container)(kube_pod_container_info{container!="", namespace='<your-namespace>'}) unless sum by (namespace,pod,container)(kube_pod_container_resource_limits{resource="memory"}))
 ----
 
-And the output should be similar as in the following figure showing that containers of both `quarkus-next` pods have no limits:
+On a cluster with no `LimitRange`, the output lists the containers of both `quarkus-next` pods.
+On the Developer Sandbox you instead get an empty result:
 
 image::no-limits.png[]
 
-The previous query is helpful to get an overview of the situation, but if you've got many results, you might not know where to start solving the problem and setting some limits.
-As limits are directly related to deployment density, you can start with the top 10 containers without memory limits using more memory.
+[IMPORTANT]
+.Why the query returns nothing on the Developer Sandbox
+====
+The Sandbox project ships a `LimitRange` named `resource-limits` that *injects* default requests and
+limits into every container that does not declare its own, so a Pod without a `resources` section
+still ends up with one:
 
-Put the following PromQL expression into query editor and push the *Run Queries* button.
+[.console-input]
+[source,bash]
+----
+kubectl get pod -l app=quarkus-next-5 -o jsonpath='{.items[0].spec.containers[0].resources}'
+----
+
+[.console-output]
+[source,bash]
+----
+{"limits":{"cpu":"1","memory":"1000Mi"},"requests":{"cpu":"10m","memory":"64Mi"}}
+----
+
+An empty result is therefore the *desired* outcome — it proves no container in the project is running
+unbounded. Run `kubectl describe limitrange resource-limits` to see the defaults being applied.
+====
+
+The previous query is helpful to get an overview of the situation, but if you've got many results, you might not know where to start solving the problem and setting some limits.
+As limits are directly related to deployment density, you can start with the containers using the most memory.
+
+Put the following PromQL expression into the query editor and push the *Run queries* button.
 
 [.console-input]
 [source]
 ----
-topk(10,sum by (namespace,pod,container)(container_memory_usage_bytes{container!="", namespace='default'}) unless sum by (namespace,pod,container)(kube_pod_container_resource_limits{resource="memory"}))
+topk(10, sum by (pod,container)(container_memory_usage_bytes{container!="", container!="POD", namespace='<your-namespace>'}))
 ----
 
 image::top-10-no-limits.png[]
 
-In this query, you see the top 10 containers with its memory consumation.
-`quarkus-next-5-64d7849864-ksln4` consumes more memory than `quarkus-next-6-64d7849864-2bfj4`.
+NOTE: `container!="POD"` excludes the infrastructure *pause* container, which is present in every Pod
+and would otherwise fill the top 10 with rows of 0 bytes.
+
+In this query, you see the top 10 containers with their memory consumption, so you know which ones to
+size first. On a cluster without a `LimitRange` you can keep the `unless` clause of the previous query
+to restrict the list to the containers that have no limit at all:
+
+[.console-input]
+[source]
+----
+topk(10,sum by (namespace,pod,container)(container_memory_usage_bytes{container!="", container!="POD", namespace='<your-namespace>'}) unless sum by (namespace,pod,container)(kube_pod_container_resource_limits{resource="memory"}))
+----
 
 === Clean Up
-
-Run the following command to undeploy current namespace:
 
 [.console-input]
 [source,bash]
 ----
-kubectl delete all --all
+kubectl delete -f apps/kubefiles/deployment-resources-limits.yaml
+kubectl delete -f apps/kubefiles/no-resources-section-deployment.yaml
+kubectl delete -f apps/kubefiles/no-resources-section-deployment-2.yaml
 ----
 
 === Inspecting current limits
@@ -407,91 +500,117 @@ Run the following command to access the `memconsume-2` container and execute the
 [.console-input]
 [source,bash]
 ----
-kubectl exec -ti memconsume-2-58b6b94fbf-c4ctw  /bin/bash
+kubectl exec -ti memconsume-2-58b6b94fbf-c4ctw -- /bin/bash
 
 curl localhost:8080/hello/consume/100000000
 curl localhost:8080/hello/consume/100000000
 curl localhost:8080/hello/consume/100000000
 ----
 
-Run the following PromQL expression to get the list of all containers using more than 70% of memory set in `limits`. 
+Run the following PromQL expression to get the list of all containers using more than 70% of the memory set in `limits`.
 
 [.console-input]
 [source,bash]
 ----
-(sum by (namespace,pod,container)(container_memory_usage_bytes{container!="", namespace='default'}) / sum by (namespace,pod,container)(kube_pod_container_resource_limits{resource="memory", namespace='default'})) > 0.7
+(sum by (namespace,pod,container)(container_memory_usage_bytes{container!="", namespace='<your-namespace>'}) / sum by (namespace,pod,container)(kube_pod_container_resource_limits{resource="memory", namespace='<your-namespace>'})) > 0.7
 ----
 
 image::70_mem.png[]
 
-In the previous screenshot, `memconsume-2-58b6b94fbf-c4ctw` container is consuming 76% of the memory.
+In the previous screenshot, the `memconsume-2` container is consuming 78% of its memory limit.
 
-One strategy to set a new value for `limits` can be increased by 25% of the value and monitor again.
+One strategy to set a new value for `limits` is to increase it by 25% and monitor again.
 
-But what's happened to the container has no limit?
+But what happens to the container that has no limit?
 
-In this case, it's a good idea to choose the value of the container that consumed the most during it was running.
-
-Run the following PromQL expression to get this value:
-
-[.console-input]
-[source,bash]
-----
-max by (namespace,owner_name,container)((container_memory_usage_bytes{container!="POD",container!="", namespace='default'}) * on(namespace,pod) group_left(owner_name) avg by (namespace,pod,owner_name)(kube_pod_owner{}))
-----
-
-The `memconsume-2` consumed a max of 319Mb in its lifetime while `memconsume` just 141Mb.
-
-With this data in mind, containers won’t run out of resources.
-
-== Overcommiting
-
-We've seen in the <<Overcommitment of memory>> section that you can set as much as limit as you want and the container will still be deployable.
-
-With few services deployed in the cluster, it's easier to control the limits of each one to not overcommitted the total amount of memory.
-
-We can check the overcommit percentage of our namespace on memory, that is suming the total amount of memory of each cluster node and the total amount of `limits`.
+In this case, it's a good idea to choose the value of the container that consumed the most while it was running.
 
 Run the following PromQL expression to get this value:
 
 [.console-input]
 [source,bash]
 ----
-100 * sum(kube_pod_container_resource_limits{container!="",resource="memory", namespace='default'} ) / sum(kube_node_status_capacity{resource='memory'})
+max by (namespace,owner_name,container)((container_memory_usage_bytes{container!="POD",container!="", namespace='<your-namespace>'}) * on(namespace,pod) group_left(owner_name) avg by (namespace,pod,owner_name)(kube_pod_owner{}))
 ----
 
-In this case, the sum of all limits of the `default` namespace is just 0.82 % of the memory of the whole cluster.
+`memconsume-2` consumed a maximum of 328.9M in its lifetime while `memconsume` just 8.25M.
+
+image::max_mem.png[]
+
+With this data in mind, containers won't run out of resources.
+
+== Overcommitting
+
+We've seen in the <<Overcommitment of memory>> section that you can set as much limit as you want and the container will still be deployable.
+
+With few services deployed in the cluster, it's easier to control the limits of each one so as not to overcommit the total amount of memory.
+
+We can check the overcommit percentage of our namespace on memory, that is summing the total amount of memory available and the total amount of `limits`.
+
+[IMPORTANT]
+.CLUSTER ADMIN
+====
+`kube_node_status_capacity` is a *cluster-scoped* metric. Thanos multi-tenancy only exposes metrics
+carrying your own `namespace` label, so as a Developer Sandbox user this series returns
+*No datapoints found* and both queries below evaluate to nothing.
+Use the quota-based variants that follow instead — they express the same idea against the ceiling that
+actually applies to you.
+====
+
+[.console-input]
+[source,bash]
+----
+100 * sum(kube_pod_container_resource_limits{container!="",resource="memory", namespace='<your-namespace>'} ) / sum(kube_node_status_capacity{resource='memory'})
+----
+
+Having the percentage against the whole cluster is useful, but since Pods are deployed into specific nodes, it's more beneficial to know this relationship by node.
+
+[.console-input]
+[source,bash]
+----
+100 * sum by (node)((kube_pod_container_resource_limits{container!='',resource='memory', namespace='<your-namespace>'} ))/sum by (node)(kube_node_status_capacity{resource='memory'})
+----
+
+=== Measuring overcommitment against your quota
+
+On a multi-tenant cluster the meaningful denominator is not the cluster memory but the
+`limits.memory` of your `ResourceQuota`, and `kube_resourcequota` *is* visible to you.
+
+Run the following PromQL expression to get the percentage of your quota that is already committed:
+
+[.console-input]
+[source,bash]
+----
+100 * sum(kube_pod_container_resource_limits{container!="",resource="memory", namespace='<your-namespace>'}) / sum(kube_resourcequota{namespace='<your-namespace>', resource='limits.memory', type='hard'})
+----
+
+In this case, the sum of all limits of the project is 17.12 % of the memory the project is allowed to commit.
 
 image::total_mem_limits.png[]
 
-Having the percentage with the total cluster is useful, but since Pods are deployed into specific nodes, it's more beneficial to know this relationship by a node.
-
-Run the following PromQL expression to get these values:
+And to see which Pod is responsible for which share of that budget:
 
 [.console-input]
 [source,bash]
 ----
-100 * sum by (node)((kube_pod_container_resource_limits{container!='',resource='memory', namespace='default'} ))/sum by (node)(kube_node_status_capacity{resource='memory'})
+100 * sum by (pod)(kube_pod_container_resource_limits{container!='',resource='memory', namespace='<your-namespace>'}) / scalar(sum(kube_resourcequota{namespace='<your-namespace>', resource='limits.memory', type='hard'}))
 ----
-
-In this case, the deployment in each node will use at most 1.24% of node memory.
 
 image::mem_node_limits.png[]
 
 === Clean Up
 
-Run the following command to undeploy current namespace:
-
 [.console-input]
 [source,bash]
 ----
-kubectl delete all --all
+kubectl delete -f apps/kubefiles/deployment-resources-limits.yaml
+kubectl delete -f apps/kubefiles/deployment-resources-limits-2.yaml
 ----
 
 == Automatic Scaling
 
-When dealing with limits, you might want to protect against getting out of resources. 
-Kubernetes offers Horitzontal Pod Autoscaler (HPA), a way to configure Kubernetes to increase replicas depending on CPU or memory usage.
+When dealing with limits, you might want to protect against running out of resources.
+Kubernetes offers the Horizontal Pod Autoscaler (HPA), a way to configure Kubernetes to increase replicas depending on CPU or memory usage.
 
 === Deploying application
 
@@ -499,14 +618,13 @@ Deploy the following application which has aggressive limitations for its busine
 
 [.console-input]
 [source,yaml]
-.deployment-prime.yaml
+.apps/kubefiles/deployment-prime.yaml
 ----
 ---
 apiVersion: v1
 kind: Service
 metadata:
   annotations:
-    app.quarkus.io/build-timestamp: 2024-01-15 - 11:05:18 +0000
     prometheus.io/scrape: "true"
     prometheus.io/path: /q/metrics
     prometheus.io/port: "8080"
@@ -530,12 +648,6 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  annotations:
-    app.quarkus.io/build-timestamp: 2024-01-15 - 11:05:18 +0000
-    prometheus.io/scrape: "true"
-    prometheus.io/path: /q/metrics
-    prometheus.io/port: "8080"
-    prometheus.io/scheme: http
   labels:
     app.kubernetes.io/name: bs-mem-mgnt
     app.kubernetes.io/version: 1.0.0-SNAPSHOT
@@ -549,12 +661,6 @@ spec:
       app.kubernetes.io/name: bs-mem-mgnt
   template:
     metadata:
-      annotations:
-        app.quarkus.io/build-timestamp: 2024-01-15 - 11:05:18 +0000
-        prometheus.io/scrape: "true"
-        prometheus.io/path: /q/metrics
-        prometheus.io/port: "8080"
-        prometheus.io/scheme: http
       labels:
         app.kubernetes.io/managed-by: quarkus
         app.kubernetes.io/version: 1.0.0-SNAPSHOT
@@ -575,26 +681,43 @@ spec:
               protocol: TCP
           resources:
             limits:
-              cpu: 100m
+              cpu: 100m # <1>
               memory: 800Mi
             requests:
               cpu: 50m
               memory: 250Mi
 ----
+<1> A tenth of a core is deliberately too little for the workload, so the HPA reacts quickly
 
 Apply the deployment file:
 
 [.console-input]
 [source,bash]
 ----
-kubectl apply -f deployment-prime.yaml
+kubectl apply -f apps/kubefiles/deployment-prime.yaml
 ----
 
-Then create an OpenShit Route to access to the service, and create a new file with the HPA definition:
+Then create an OpenShift Route to access the service:
+
+[.console-input]
+[source,bash]
+----
+oc expose service/bs-mem-mgnt
+oc get route bs-mem-mgnt
+----
+
+[.console-output]
+[source,bash]
+----
+NAME          HOST/PORT                                                   SERVICES      PORT   TERMINATION   WILDCARD
+bs-mem-mgnt   bs-mem-mgnt-<your-namespace>.apps.<cluster>.openshiftapps.com   bs-mem-mgnt   http                 None
+----
+
+And apply the HPA definition:
 
 [.console-input]
 [source,yaml]
-.hpa.yaml
+.apps/kubefiles/hpa.yaml
 ----
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
@@ -616,6 +739,12 @@ spec:
           type: Utilization
 ----
 
+[.console-input]
+[source,bash]
+----
+kubectl apply -f apps/kubefiles/hpa.yaml
+----
+
 In this definition, we set that at most only 5 pods can be created, and the metric to scale up (and down) Pods is the CPU.
 
 === Testing
@@ -626,52 +755,89 @@ In a terminal window let's use `hey` to generate traffic:
 [.console-input]
 [source,bash]
 ----
-hey -c 10 -z 15s https://greeting-app-asotobue-dev.apps.sandbox-m2.ll9k.p1.openshiftapps.com/hello/prime
+hey -c 10 -z 15s http://$(oc get route bs-mem-mgnt -o jsonpath='{.spec.host}')/hello/prime
 ----
-
-IMPORTANT: Change URL with your route URL.
 
 List the Pods to validate that more than one replica has been created automatically.
 
 [.console-input]
 [source,bash]
 ----
-kubectl get pods                                                               
+kubectl get pods
 ----
 
 [.console-output]
 [source,bash]
 ----
 NAME                           READY   STATUS    RESTARTS   AGE
-bs-mem-mgnt-84d6595648-74sdn   1/1     Running   0          2m10s
-bs-mem-mgnt-84d6595648-qmdbd   1/1     Running   0          85s
-bs-mem-mgnt-84d6595648-qstbt   1/1     Running   0          20m
-bs-mem-mgnt-84d6595648-r5d8n   1/1     Running   0          115s
+bs-mem-mgnt-68996cc846-5z9j8   1/1     Running   0          8m52s
+bs-mem-mgnt-68996cc846-dr6wr   1/1     Running   0          4m56s
+bs-mem-mgnt-68996cc846-jps9h   1/1     Running   0          6m26s
+bs-mem-mgnt-68996cc846-qdmns   1/1     Running   0          5m41s
 ----
+
+And inspect the autoscaler itself:
+
+[.console-input]
+[source,bash]
+----
+kubectl get hpa
+----
+
+[.console-output]
+[source,bash]
+----
+NAME      REFERENCE                TARGETS       MINPODS   MAXPODS   REPLICAS   AGE
+example   Deployment/bs-mem-mgnt   cpu: 3%/50%   1         5         4          7m
+----
+
+NOTE: Scaling down is deliberately slow (the default stabilization window is 5 minutes), so the
+replica count stays high for a while after `hey` finishes.
 
 === Clean Up
 
 [.console-input]
 [source,bash]
 ----
-kubectl delete -f deployment-prime.yaml
-kubectl delete -f hpa.yaml
+kubectl delete -f apps/kubefiles/hpa.yaml
+kubectl delete -f apps/kubefiles/deployment-prime.yaml
+oc delete route bs-mem-mgnt
 ----
 
 == Automatic Requests and Limits
 
-But there is another way to calculate `requests` and `limits`. 
-And that's using the Virtual Pod Autoscaler.
+But there is another way to calculate `requests` and `limits`.
+And that's using the Vertical Pod Autoscaler.
 
-The Virtual Pod Autoscaler automatically computes historical and current CPU and memory usage for the containers in those pods and uses this data to determine optimized resource limits and requests to ensure that these pods are operating efficiently at all times.
+The Vertical Pod Autoscaler automatically computes historical and current CPU and memory usage for the containers in those pods and uses this data to determine optimized resource limits and requests to ensure that these pods are operating efficiently at all times.
+
+[IMPORTANT]
+.CLUSTER ADMIN
+====
+Unlike the HPA, the VPA is *not* part of Kubernetes: it is delivered as an Operator that a cluster
+administrator has to install cluster-wide. **This whole section cannot be completed on the Developer
+Sandbox.** As a regular user you will observe:
+
+* the *Software Catalog* contains no *Vertical Pod Autoscaler* entry (operator catalogs are
+  administrator-only);
+* `oc api-resources --api-group=autoscaling.k8s.io` returns an empty list;
+* `kubectl get crd verticalpodautoscalers.autoscaling.k8s.io` is rejected with
+  `customresourcedefinitions ... is forbidden ... at the cluster scope`.
+
+Read through the steps to understand the mechanism, and come back to them on a cluster where you are
+an administrator.
+====
 
 === Installing VPA
 
-To install Virtual Pod Autoscaler in OpenShift, just install the Virtual Pod Autoscaler Operator from Operator Hub with all defaults as shown in the following figure:
+To install the Vertical Pod Autoscaler in OpenShift, install the *Vertical Pod Autoscaler Operator*
+with all defaults.
 
-image::vpa_install.png[]
+NOTE: OpenShift 4.21 merged the *Developer* and *Administrator* perspectives into a single
+*Core platform* navigation and OperatorHub is now reached through *Ecosystem -> Software Catalog*.
+The old `/operatorhub/ns/<namespace>` URL returns *404: Page Not Found*.
 
-To validate installation run the following command:
+To validate the installation run the following command:
 
 [.console-input]
 [source,bash]
@@ -765,7 +931,7 @@ spec:
     updateMode: "Auto" # <2>
 ----
 <1> Configures which deployment can be vertically scaled
-<2> Automatically apply the CPU and memory recommendations throughout the pod lifetime 
+<2> Automatically apply the CPU and memory recommendations throughout the pod lifetime
 
 [.console-input]
 [source,bash]
@@ -773,7 +939,7 @@ spec:
 kubectl apply -f apps/kubefiles/my-vpa.yaml
 ----
 
-After 30 seconds or so, run `top` command to inspect the resources usage:
+After 30 seconds or so, run the `top` command to inspect the resource usage:
 
 [.console-input]
 [source,bash]
@@ -784,12 +950,11 @@ kubectl top pod
 [.console-output]
 [source,bash]
 ----
-W1224 09:32:34.477999   14209 top_pod.go:140] Using json format to get metrics. Next release will switch to protocol-buffers, switch early by passing --use-protocol-buffers flag
 NAME                                  CPU(cores)   MEMORY(bytes)
 my-auto-deployment-858b7f8944-pt2f9   291m         1Mi
 ----
 
-Then you can get the status of the Virtual Pod Autoscaler by running the following command:
+Then you can get the status of the Vertical Pod Autoscaler by running the following command:
 
 [.console-input]
 [source,bash]
@@ -804,7 +969,7 @@ NAME     MODE   CPU   MEM   PROVIDED   AGE
 my-vpa   Auto                          49s
 ----
 
-If no values are shown means that there is still not enough data so VPA can calculate a value.
+If no values are shown it means that there is still not enough data for the VPA to calculate a value.
 Repeat the command until you see a value:
 
 [.console-input]
@@ -820,7 +985,7 @@ NAME     MODE   CPU    MEM       PROVIDED   AGE
 my-vpa   Auto   716m   262144k   True       65s
 ----
 
-When a new value is assigned, an automatic rolling update of the containers are executed:
+When a new value is assigned, an automatic rolling update of the containers is executed:
 
 [.console-input]
 [source,bash]
@@ -837,7 +1002,7 @@ my-auto-deployment-858b7f8944-pt2f9   1/1     Running       0          2m13s
 my-auto-deployment-858b7f8944-qjfgs   1/1     Terminating   0          2m13s
 ----
 
-Finally, describing the new Pod shows the nre request values:
+Finally, describing the new Pod shows the new request values:
 
 [.console-input]
 [source,bash]
@@ -850,17 +1015,7 @@ kubectl describe pod my-auto-deployment-858b7f8944-dwbpw
 ----
 Annotations:  k8s.v1.cni.cncf.io/network-status:
                 [{
-                    "name": "openshift-sdn",
-                    "interface": "eth0",
-                    "ips": [
-                        "10.130.1.23"
-                    ],
-                    "default": true,
-                    "dns": {}
-                }]
-              k8s.v1.cni.cncf.io/networks-status:
-                [{
-                    "name": "openshift-sdn",
+                    "name": "ovn-kubernetes",
                     "interface": "eth0",
                     "ips": [
                         "10.130.1.23"
@@ -888,7 +1043,7 @@ Containers:
       -c
       while true; do timeout 0.5s yes >/dev/null; sleep 0.5s; done
     State:          Running
-      Started:      Fri, 24 Dec 2021 09:33:21 +0100
+      Started:      Sun, 21 Sep 2026 09:33:21 +0200
     Ready:          True
     Restart Count:  0
     Requests:
@@ -902,11 +1057,9 @@ Containers:
 
 === Clean Up
 
-Run the following command to undeploy current namespace:
-
 [.console-input]
 [source,bash]
 ----
-kubectl delete all --all
 kubectl delete -f apps/kubefiles/my-vpa.yaml
+kubectl delete -f apps/kubefiles/my-auto-deployment.yaml
 ----

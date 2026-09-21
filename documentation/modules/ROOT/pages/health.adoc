@@ -2,8 +2,8 @@
 
 While you coded the database configuration in the previous exercise, Quarkus has generated Kubernetes and OpenShift resources in `target/kubernetes`:
 
-[.console-input]
-[source,config,subs="+macros,+attributes"]
+[.console-output]
+[source,text,subs="+macros,+attributes"]
 ----
 target/kubernetes
 |-- kubernetes.json
@@ -20,16 +20,16 @@ But before doing that, let's implement custom health checks.
 In the terminal window please execute the following command:
 
 [.console-input]
-[source,config,subs="+macros,+attributes"]
+[source,bash,subs="+macros,+attributes"]
 ----
 ./mvnw quarkus:add-extension -Dextensions="io.quarkus:quarkus-smallrye-health"
 ----
 
-If you did not stop DevMode and inspect again `target/kubernetes/kubernetes.yml` or `target/kubernetes/openshift.yml` 
-will notice that it had changed. Your Deployment/DeploymentConfig resource will contain a few lines like to:
+If you did not stop DevMode and inspect again `target/kubernetes/kubernetes.yml` or `target/kubernetes/openshift.yml`
+will notice that it had changed. Your `Deployment` resource will contain a few lines like to:
 
-[.console-input]
-[source,config,subs="+macros,+attributes"]
+[.console-output]
+[source,yaml,subs="+macros,+attributes"]
 ----
           livenessProbe:
             failureThreshold: 3
@@ -37,8 +37,8 @@ will notice that it had changed. Your Deployment/DeploymentConfig resource will 
               path: /q/health/live
               port: 8080
               scheme: HTTP
-            initialDelaySeconds: 0
-            periodSeconds: 30
+            initialDelaySeconds: 5
+            periodSeconds: 10
             successThreshold: 1
             timeoutSeconds: 10
           name: tutorial-app
@@ -52,11 +52,26 @@ will notice that it had changed. Your Deployment/DeploymentConfig resource will 
               path: /q/health/ready
               port: 8080
               scheme: HTTP
-            initialDelaySeconds: 0
-            periodSeconds: 30
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 10
+          startupProbe: # <1>
+            failureThreshold: 3
+            httpGet:
+              path: /q/health/started
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 5
+            periodSeconds: 10
             successThreshold: 1
             timeoutSeconds: 10
 ----
+<1> Quarkus 3 also generates a `startupProbe`. It is what protects a slow-starting JVM from being
+    killed by the liveness probe — but it gives the application only
+    `initialDelaySeconds + failureThreshold × periodSeconds` ≈ 35 seconds to answer `/q/health/started`.
+    Remember this when you set a CPU limit in xref:resources.adoc[Adjust resource quotas]: too small a
+    limit makes the JVM miss that budget and the container ends up in `CrashLoopBackOff`.
 
 TIP: You can access these endpoints also in your local at http://localhost:8080/q/health/ready or http://localhost:8080/q/health/live.
 
@@ -108,13 +123,15 @@ This type of scenario requires customizing health checks for the readiness probe
 
 === Add the REST Client extension
 
-In the terminal window please execute the following command
-:
+In the terminal window please execute the following command:
+
 [.console-input]
-[source,config,subs="+macros,+attributes"]
+[source,bash,subs="+macros,+attributes"]
 ----
-./mvnw quarkus:add-extension -Dextensions="io.quarkus:quarkus-rest-client"
+./mvnw quarkus:add-extension -Dextensions="io.quarkus:quarkus-rest-client,io.quarkus:quarkus-rest-client-jsonb" # <1>
 ----
+<1> `quarkus-rest-client` on its own has no JSON provider, so the `ExternalGreeting` response cannot be
+    deserialized. Add `quarkus-rest-client-jsonb` to match the `quarkus-rest-jsonb` you are already using.
 
 === Consuming a REST endpoint
 
@@ -151,7 +168,7 @@ import jakarta.ws.rs.core.MediaType;
 
 
 @RegisterRestClient
-@Path("/hellosalut")
+@Path("/")
 public interface HelloService {
 
     @GET
@@ -164,10 +181,25 @@ public interface HelloService {
 And add in `src/main/resources/application.properties`:
 
 [.console-input]
-[source,config,subs="+macros,+attributes"]
+[source,properties,subs="+macros,+attributes"]
 ----
-com.redhat.developers.HelloService/mp-rest/url=https://fourtonfish.com
+com.redhat.developers.HelloService/mp-rest/url=https://hellosalut.stefanbohacek.com
 ----
+
+[IMPORTANT]
+====
+The hellosalut API used to live at `https://fourtonfish.com/hellosalut/`. That address now answers
+`301 Moved Permanently` towards `https://stefanbohacek.com/hellosalut/`. The MicroProfile REST Client
+does not follow redirects by default, and the `UrlHealthCheck` you add below asserts a `200`, so the
+old host silently turns the readiness probe red. Use `https://hellosalut.stefanbohacek.com` — it serves
+the same JSON directly at `/`, which is why both `@Path` annotations above are `/`.
+
+[.console-output]
+[source,json]
+----
+{"code":"en","hello":"Hello"}
+----
+====
 
 === Define actions at startup initialization
 
@@ -247,7 +279,6 @@ This code will be executed after initializing the database from `import.sql`.
 <2> Enable for both prod and dev build time profiles.
 <3> Inject the `RestClient` service.
 <4> Inject the service that updates database content and has `@Transactional` annotation set on the invoked method.
-<5> Invoke record update.
 
 
 
@@ -256,15 +287,16 @@ This code will be executed after initializing the database from `import.sql`.
 You can change the root path to the health endpoints by setting the following property in `src/main/resources/application.properties`:
 
 [.console-input]
-[source,config,subs="+macros,+attributes"]
+[source,properties,subs="+macros,+attributes"]
 ----
 quarkus.smallrye-health.root-path=/health
 ----
 
-The Quarkus Kubernetes/OpenShift extension will take into account your custom probe definitions when generating their YAML.
+The Quarkus Kubernetes/OpenShift extension will take into account your custom probe definitions when generating their YAML:
+the three probes in `target/kubernetes/openshift.yml` now point at `/health/live`, `/health/ready` and `/health/started`.
 If you reload the context in DevMode (by pressing `s`), you would notice that your Kubernetes/OpenShift manifests have changed and take into account your new configuration.
 
-As the database readiness is already assessed, we can customize another readiness probe to check the availability of the endpoint `https://fourtonfish.com`:
+As the database readiness is already assessed, we can customize another readiness probe to check the availability of the endpoint `https://hellosalut.stefanbohacek.com`:
 
 
 [.console-input]
@@ -289,7 +321,7 @@ public class CustomHealthCheck {
 
     @Readiness // <1>
     HealthCheck checkURL() {
-        return new UrlHealthCheck(externalURL+"/hellosalut/?lang=en") // <2>
+        return new UrlHealthCheck(externalURL+"/?lang=en") // <2>
                 .name("external-url-check").requestMethod(HttpMethod.GET).statusCode(200);
     }
 
@@ -307,3 +339,41 @@ Quarkus comes with some HealthCheck implementations for you to check status of d
 ** UrlHealthCheck: checks if host is reachable using a Http URL connection.
 ** InetAddressHealthCheck: checks if host is reachable using InetAddress.isReachable method.
 ====
+
+== Verify the readiness probe
+
+Once the application runs, the readiness endpoint reports both the datasource check contributed by
+`quarkus-agroal` and your own `external-url-check`:
+
+[.console-input]
+[source,bash]
+----
+curl -s localhost:8080/health/ready | jq
+----
+
+[.console-output]
+[source,json]
+----
+{
+  "status": "UP",
+  "checks": [
+    {
+      "name": "external-url-check",
+      "status": "UP",
+      "data": {
+        "host": "GET https://hellosalut.stefanbohacek.com/?lang=en"
+      }
+    },
+    {
+      "name": "Database connections health check",
+      "status": "UP",
+      "data": {
+        "<default>": "UP"
+      }
+    }
+  ]
+}
+----
+
+NOTE: `health-ui` is a dev-mode only feature. On the deployed application only `/health`,
+`/health/live`, `/health/ready` and `/health/started` answer.

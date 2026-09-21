@@ -2,17 +2,17 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    app: memconsume
+    app: memconsume-2
   name: memconsume-2
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: memconsume
+      app: memconsume-2
   template:
     metadata:
       labels:
-        app: memconsume
+        app: memconsume-2
     spec:
       containers:
       - name: memconsume

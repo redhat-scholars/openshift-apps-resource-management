@@ -2,17 +2,17 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    app: quarkus-next
+    app: quarkus-next-5
   name: quarkus-next-5
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: quarkus-next
+      app: quarkus-next-5
   template:
     metadata:
       labels:
-        app: quarkus-next
+        app: quarkus-next-5
     spec:
       containers:
       - name: quarkus
@@ -24,24 +24,24 @@ spec:
             memory: "300Mi" 
             cpu: "250m" # 1/4 core
           limits:
-            memory: "50000Mi" # excactly all available memory in a node
+            memory: "14Gi" # on its own this fits, but two of them do not
             cpu: "1000m" # 1 core
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    app: quarkus-next
+    app: quarkus-next-6
   name: quarkus-next-6
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: quarkus-next
+      app: quarkus-next-6
   template:
     metadata:
       labels:
-        app: quarkus-next
+        app: quarkus-next-6
     spec:
       containers:
       - name: quarkus
@@ -53,5 +53,5 @@ spec:
             memory: "300Mi" 
             cpu: "250m" # 1/4 core
           limits:
-            memory: "50000Mi" # this makes 
+            memory: "14Gi" # summed with the deployment above this overcommits the namespace
             cpu: "1000m" # 1 core

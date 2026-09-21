@@ -109,7 +109,8 @@ public class GreetingResource {
 
 == Modify GreetingResourceTest
 
-Since Dev mode is enabled and if you pressed `r` to run ContinuousTesting, you will also a test failure.
+Since Dev mode is enabled and if you pressed `r` to run Continuous Testing, you will also see a test failure:
+the generated test still asserts the `Hello from Quarkus REST` string, which the endpoint no longer returns.
 To fix the test failure, modify `GreetingResourceTest` as follows:
 
 [.console-input]
@@ -143,7 +144,7 @@ class GreetingResourceTest {
 [reftext="Dev Services"]
 == Zero Config Database Setup
 
-Quarkus can even provide you with a zero-config database out of the box when testing or running in dev mode, a feature we refer to as Dev Services. Depending on your database type, you may need Docker installed to use this feature.
+Quarkus can even provide you with a zero-config database out of the box when testing or running in dev mode, a feature we refer to as Dev Services. Depending on your database type, you need a container runtime (Podman or Docker) to use this feature.
 
 
 To use Dev Services, all you need to do is include the relevant extension for the type of database you want (either reactive or JDBC, or both), without configuring any database URL, username, and password.
@@ -160,27 +161,32 @@ Add the following database properties to your `application.properties` so that i
 
 [#quarkuspdb-update-props]
 [.console-input]
-[source,config,subs="+macros,+attributes"]
+[source,properties,subs="+macros,+attributes"]
 ----
 # Configuration file
 # key = value
 
 quarkus.hibernate-orm.sql-load-script=import.sql
-quarkus.datasource.db-kind = postgresql#<1>
+quarkus.datasource.db-kind = postgresql # <1>
 quarkus.container-image.builder=jib
-quarkus.hibernate-orm.database.generation = drop-and-create
+quarkus.hibernate-orm.schema-management.strategy = drop-and-create # <2>
 
 %dev.quarkus.hibernate-orm.log.sql=true
-%dev.quarkus.hibernate-orm.log.bind-param=true
+%dev.quarkus.hibernate-orm.log.bind-parameters=true # <3>
 
-%prod.quarkus.datasource.username = ${POSTGRES_USERNAME:postgres}#<2>
+%prod.quarkus.datasource.username = ${POSTGRES_USERNAME:postgres} # <4>
 %prod.quarkus.datasource.password = ${POSTGRES_PASSWORD:postgres}
 %prod.quarkus.datasource.jdbc.url = jdbc:postgresql://${POSTGRES_SERVER:postgres}:5432/postgres
 %prod.quarkus.hibernate-orm.log.sql = false
 ----
 
 <1> With <<Dev Services>> enabled, no JDBC URL needs to be provided in Dev Mode. In this case, we input the URL to ensure consistency across all application run modes.
-<2> Only for prod application profile the database credentials are needed.
+<2> `quarkus.hibernate-orm.database.generation` is deprecated. Using it still works but logs
+    `The "quarkus.hibernate-orm.database.generation" config property is deprecated and should not be used anymore.`
+    at every start.
+<3> The property is `log.bind-parameters`, not `log.bind-param`. The short form is silently ignored,
+    so you would simply never see the bound values in the SQL log.
+<4> Only for prod application profile the database credentials are needed.
 
 Create `import.sql` file in `src/main/resources` with the following content:
 
@@ -191,7 +197,11 @@ insert into Message(content, country, language, id) values('Hello', 'United King
 insert into Message(content, country, language, id) values('Hola', 'Spain', 'es', 2);
 insert into Message(content, country, language, id) values('Salut', 'Romania', 'ro', 3);
 insert into Message(content, country, language, id) values('Bonjour', 'France', 'fr', 4);
+alter sequence Message_SEQ restart with 100; # <1>
 ----
+<1> `PanacheEntity` takes its ids from the `Message_SEQ` sequence, which starts at 1. Without this line
+    the first `POST /messages` fails with a duplicate primary key, because rows 1–4 were just inserted
+    by hand.
 
 == Setting up a test profile
 
@@ -200,7 +210,7 @@ we should setup a test profile in `application.properties`:
 
 [#quarkuspdb-update-test-props]
 [.console-input]
-[source,config,subs="+macros,+attributes"]
+[source,properties,subs="+macros,+attributes"]
 ----
 %test.quarkus.datasource.db-kind=h2
 %test.quarkus.datasource.username=username-default
@@ -211,7 +221,7 @@ we should setup a test profile in `application.properties`:
 %test.quarkus.datasource.jdbc.driver=org.h2.Driver
 ----
 
-And the following `pom.xml` dependency for it:
+And the following `pom.xml` dependencies for it:
 
 [#quarkuspdb-update-pom]
 [.console-input]
@@ -219,23 +229,81 @@ And the following `pom.xml` dependency for it:
 ----
     <dependency>
       <groupId>io.quarkus</groupId>
-      <artifactId>quarkus-test-h2</artifactId>
+      <artifactId>quarkus-jdbc-h2</artifactId> <!--1-->
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.quarkus</groupId>
+      <artifactId>quarkus-test-h2</artifactId> <!--2-->
       <scope>test</scope>
     </dependency>
 ----
+<1> Provides the `org.h2.Driver` class referenced by `%test.quarkus.datasource.jdbc.driver`.
+    Without it the build fails before any test runs, with
+    `ConfigurationException: Unable to load the datasource driver org.h2.Driver`.
+<2> Starts an H2 server for Dev Services. It does *not* bring the JDBC driver with it, which is why
+    both dependencies are needed.
+
+With the `test` profile now pointing at an in-memory H2 database, `./mvnw test` no longer needs the
+PostgreSQL Dev Services container.
 
 == Create your database setup in OpenShift
 
 In order to setup your production database in https://developers.redhat.com/developer-sandbox/get-started[Developer Sandbox], please do the following steps:
- 
-** click on `+Add` from the left hand side menu
-** select `Database` from `Developer Catalog` and afterwards `PostgreSQL (Ephemeral)`
+
+** in the left hand side menu open *Ecosystem -> Software Catalog*
+** filter by the *Templates* type and search for `postgresql`, then pick *PostgreSQL (Ephemeral)*
 
 [.mt-4.center]
-image::postgresql.png[Database,400,400,align="center"]
+image::postgresql.png[Database,600,600,align="center"]
 
-** click on `Instantiate template` button and fill in the following details:
+** click on `Instantiate Template` and fill in the following details, leaving everything else at its default:
+
+[cols="2,1",options="header"]
+|===
+| Field | Value
+
+| Database Service Name | `postgres`
+| PostgreSQL Connection Username | `postgres`
+| PostgreSQL Connection Password | `postgres`
+| PostgreSQL Database Name | `postgres`
+|===
 
 [.mt-4.center]
-image::template.png[Database,400,400,align="center"]
+image::template.png[Database,600,600,align="center"]
+
+These are the values the `%prod` datasource defaults to
+(`${POSTGRES_USERNAME:postgres}`, `${POSTGRES_PASSWORD:postgres}`,
+`jdbc:postgresql://${POSTGRES_SERVER:postgres}:5432/postgres`), so naming the service `postgres`
+is what makes the application find the database without any extra environment variable.
+
+[NOTE]
+====
+OpenShift 4.21 removed the *Developer* and *Administrator* perspectives in favour of a single
+*Core platform* navigation. What used to be *+Add -> Developer Catalog* is now
+*Ecosystem -> Software Catalog*.
+====
+
+Wait until the database Pod is ready:
+
+[.console-input]
+[source,bash]
+----
+oc rollout status dc/postgres
+----
+
+[.console-output]
+[source,text]
+----
+Warning: apps.openshift.io/v1 DeploymentConfig is deprecated in v4.14+, unavailable in v4.10000+
+replication controller "postgres-2" successfully rolled out
+----
+
+[NOTE]
+====
+The shipped `postgresql-ephemeral` template still produces a `DeploymentConfig`, which is why `oc`
+prints a deprecation warning and why the command is `dc/postgres` rather than `deployment/postgres`.
+Your own application, built by the Quarkus OpenShift extension, uses a plain `apps/v1` `Deployment` —
+see xref:separate.adoc[Test configurations].
+====
 

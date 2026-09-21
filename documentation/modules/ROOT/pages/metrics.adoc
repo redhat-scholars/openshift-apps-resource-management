@@ -1,7 +1,7 @@
 = Tailor metrics
 
 Firstly, let's add the micrometer extension to our setup.
-Please open a new terminal window, and make sure you’re at the root of your tutorial-app project, then run:
+Please open a new terminal window, and make sure you're at the root of your tutorial-app project, then run:
 
 [.console-input]
 [source,bash]
@@ -11,7 +11,7 @@ Please open a new terminal window, and make sure you’re at the root of your tu
 
 == Configuration of common tags
 
-When deploying accross multiple projects/namespaces is always good to have an unified view over some application metrics.
+When deploying across multiple projects/namespaces it is always good to have a unified view over some application metrics.
 Let's define several common tags for the application, varying in value at deployment time:
 
 [.console-input]
@@ -32,18 +32,20 @@ interface GlobalTagsConfig {
 }
 ----
 
-`@ConfigMapping(prefix = "global")` annotation maps configurations from `application.properties` prefixed by `global`:
+The `@ConfigMapping(prefix = "global")` annotation maps configurations from `application.properties` prefixed by `global`:
 
 [.console-input]
 [source,properties]
 ----
-global.region=${REGION:CEE} <1>
-global.country=${COUNTRY:'Romania'}
+global.region=${REGION:CEE} # <1>
+global.country=${COUNTRY:Romania} # <2>
 ----
 
-<1> Environment configuration will be named `REGION` and having the default value `CEE`.
+<1> Environment configuration will be named `REGION` and have the default value `CEE`.
+<2> Do *not* quote the default value. `${COUNTRY:'Romania'}` makes the single quotes part of the value
+    and every metric ends up tagged `country="'Romania'"`.
 
-Further, we will propagate these configurations by via `MeterFilter` customization:
+Further, we will propagate these configurations via `MeterFilter` customization:
 
 [.console-input]
 [source,java]
@@ -52,11 +54,11 @@ package com.redhat.developers;
 
 import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.config.MeterFilter;
-import io.quarkus.runtime.configuration.ProfileManager;
+import io.quarkus.runtime.LaunchMode; // <1>
 
-import javax.enterprise.inject.Produces;
-import javax.inject.Inject;
-import javax.inject.Singleton;
+import jakarta.enterprise.inject.Produces; // <2>
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
 import java.util.Arrays;
 
 @Singleton
@@ -71,16 +73,19 @@ public class CustomConfiguration {
         return MeterFilter.commonTags(Arrays.asList(
            Tag.of(GlobalTagsConfig.REGION, tagsConfig.region()),
            Tag.of(GlobalTagsConfig.COUNTRY, tagsConfig.country()),
-           Tag.of(GlobalTagsConfig.PROFILE, ProfileManager.getActiveProfile())
+           Tag.of(GlobalTagsConfig.PROFILE, LaunchMode.current().getDefaultProfile()) // <3>
         ));
     }
 
 }
 ----
+<1> `io.quarkus.runtime.configuration.ProfileManager` was removed in Quarkus 3.
+<2> Quarkus 3 runs on Jakarta EE 10: every `javax.*` import becomes `jakarta.*`.
+<3> `LaunchMode.current().getDefaultProfile()` is the replacement for `ProfileManager.getActiveProfile()`.
 
 == Metrics definition at endpoint level
 
-When looking to improve the performance of certain application features, is useful to have metrics defined at endpoint level as well.
+When looking to improve the performance of certain application features, it is useful to have metrics defined at endpoint level as well.
 Let's modify `GreetingResource` with the following:
 
 [.console-input]
@@ -91,9 +96,9 @@ package com.redhat.developers;
 import io.micrometer.core.annotation.Counted;
 import io.micrometer.core.annotation.Timed;
 
-import javax.transaction.Transactional;
-import javax.ws.rs.*;
-import javax.ws.rs.core.MediaType;
+import jakarta.transaction.Transactional;
+import jakarta.ws.rs.*;
+import jakarta.ws.rs.core.MediaType;
 import java.util.List;
 
 @Path("messages")
@@ -122,8 +127,8 @@ public class GreetingResource {
 }
 ----
 
-<1> Measure expected long running requests with `@Timed` annotation.
-<2> Count the creation of resources with `@Counted` annotation.
+<1> Measure expected long running requests with the `@Timed` annotation.
+<2> Count the creation of resources with the `@Counted` annotation.
 
 == Inspect the custom metrics
 
@@ -132,10 +137,11 @@ Start the application in DevMode:
 [.console-input]
 [source,bash]
 ----
-mvn quarkus:dev
+./mvnw quarkus:dev
 ----
 
-and curl a couple of times the `/messages` endpoint:
+and curl the `/messages` endpoint a couple of times:
+
 [.console-input]
 [source,bash]
 ----
@@ -144,21 +150,23 @@ curl localhost:8080/messages
 
 You can see your custom metrics recorded at http://localhost:8080/q/metrics :
 
-[.console-input]
-[source,properties]
+[.console-output]
+[source,text]
 ----
-jvm_memory_max_bytes{area="heap",country="'Romania'",id="Survivor Space",profile="prod",region="CEE",} 4390912.0
-jvm_memory_max_bytes{area="heap",country="'Romania'",id="Eden Space",profile="prod",region="CEE",} 3.5258368E7
-jvm_memory_max_bytes{area="heap",country="'Romania'",id="Tenured Gen",profile="prod",region="CEE",} 8.8080384E7
-jvm_memory_max_bytes{area="nonheap",country="'Romania'",id="CodeHeap 'profiled nmethods'",profile="prod",region="CEE",} 1.22912768E8
-jvm_memory_max_bytes{area="nonheap",country="'Romania'",id="Compressed Class Space",profile="prod",region="CEE",} 1.073741824E9
-jvm_memory_max_bytes{area="nonheap",country="'Romania'",id="Metaspace",profile="prod",region="CEE",} -1.0
-jvm_memory_max_bytes{area="nonheap",country="'Romania'",id="CodeHeap 'non-nmethods'",profile="prod",region="CEE",} 5828608.0
-jvm_memory_max_bytes{area="nonheap",country="'Romania'",id="CodeHeap 'non-profiled nmethods'",profile="prod",region="CEE",} 1.22916864E8
+jvm_memory_max_bytes{area="heap",country="Romania",id="G1 Eden Space",profile="dev",region="CEE"} -1.0
+jvm_memory_max_bytes{area="heap",country="Romania",id="G1 Survivor Space",profile="dev",region="CEE"} -1.0
+jvm_memory_max_bytes{area="heap",country="Romania",id="G1 Old Gen",profile="dev",region="CEE"} 8.334082048E9
+jvm_memory_max_bytes{area="nonheap",country="Romania",id="CodeCache",profile="dev",region="CEE"} 5.0331648E7
+jvm_memory_max_bytes{area="nonheap",country="Romania",id="Compressed Class Space",profile="dev",region="CEE"} 1.073741824E9
+jvm_memory_max_bytes{area="nonheap",country="Romania",id="Metaspace",profile="dev",region="CEE"} -1.0
 # HELP http_get_requests_total
 # TYPE http_get_requests_total counter
-http_get_requests_total{class="com.redhat.developers.GreetingResource",country="'Romania'",exception="none",method="findAll",profile="prod",region="CEE",result="success",uri="api.greet",} 3.0
+http_get_requests_total{class="com.redhat.developers.GreetingResource",country="Romania",exception="none",method="findAll",profile="dev",region="CEE",result="success",uri="api.greet"} 3.0
 ----
+
+NOTE: The `profile` tag reads `dev` because you started the application with `quarkus:dev`. On JDK 21
+the default garbage collector is G1, so the memory pool ids are `G1 Eden Space` / `G1 Survivor Space` /
+`G1 Old Gen`.
 
 == Deploy to OpenShift
 
@@ -167,7 +175,7 @@ You can deploy your latest code changes by using the command:
 [.console-input]
 [source,bash]
 ----
-mvn clean package -Dquarkus.kubernetes.deploy=true -Dquarkus.container-image.push=true
+./mvnw clean package -Dquarkus.openshift.deploy=true -Dquarkus.container-image.push=true
 ----
 
 However, we should externalize the configuration to OpenShift resources.
@@ -184,14 +192,19 @@ And we can append this new resource to our existing deployment:
 [.console-input]
 [source,bash]
 ----
-oc set env --from=configmap/country-nl dc/greeting-app
+oc set env --from=configmap/country-nl deployment/tutorial-app # <1>
 ----
+<1> There is no `DeploymentConfig` any more — the Quarkus OpenShift extension generates an `apps/v1`
+    `Deployment`, named after the application. `oc set env --from=configmap` uppercases the ConfigMap
+    keys, so `region`/`country` become the `REGION`/`COUNTRY` variables that
+    `${REGION:CEE}` and `${COUNTRY:Romania}` expect.
 
-Rollout the latest `DeploymentConfig` using:
+Setting an environment variable already triggers a new rollout; wait for it to finish with:
+
 [.console-input]
 [source,bash]
 ----
-oc rollout latest dc/greeting-app
+oc rollout status deployment/tutorial-app
 ----
 
 You can now check your overwritten metrics via:
@@ -199,6 +212,16 @@ You can now check your overwritten metrics via:
 [.console-input]
 [source,bash]
 ----
-curl $ROUTE_URL/q/metrics
+export ROUTE_URL=https://$(kubectl get route tutorial-app -o jsonpath='{.spec.host}')
+curl $ROUTE_URL/messages
+curl $ROUTE_URL/q/metrics | grep http_get_requests_total
 ----
 
+[.console-output]
+[source,text]
+----
+http_get_requests_total{class="com.redhat.developers.GreetingResource",country="Netherlands",exception="none",method="findAll",profile="prod",region="Europe",result="success",uri="api.greet"} 2.0
+----
+
+The `region` and `country` tags now carry the values coming from the ConfigMap, and `profile` is `prod`
+because the container runs a packaged application.

@@ -2,17 +2,17 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    app: quarkus-next
+    app: quarkus-next-5
   name: quarkus-next-5
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: quarkus-next
+      app: quarkus-next-5
   template:
     metadata:
       labels:
-        app: quarkus-next
+        app: quarkus-next-5
     spec:
       containers:
       - name: quarkus

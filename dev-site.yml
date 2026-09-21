@@ -14,8 +14,8 @@ content:
 asciidoc:
   attributes:
     title: Efficient Resource Management with OpenShift(Dev Mode)
-    quarkus-version: 2.4.2.Final
-    graalvm-version: 21.3.0
+    quarkus-version: 3.39.4
+    graalvm-version: 25.0.0
     project-name: tutorial-app
     page-pagination: true
     page-hide-versions-component: true

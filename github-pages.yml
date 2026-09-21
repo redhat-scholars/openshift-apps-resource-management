@@ -14,8 +14,8 @@ content:
       
 asciidoc:
   attributes:
-    quarkus-version: 2.5.0.Final
-    graalvm-version: 21.3.0
+    quarkus-version: 3.39.4
+    graalvm-version: 25.0.0
     project-name: tutorial-app
     experiment: true
     page-pagination: true

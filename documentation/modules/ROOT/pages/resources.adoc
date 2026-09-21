@@ -1,7 +1,7 @@
 = Adjust resource quotas
 
-By default, containers run with unbounded compute resources on a Kubernetes cluster. 
-Developer Sandbox is managed OpenShift environment, its cluster resources are tailored per development needs.
+By default, containers run with unbounded compute resources on a Kubernetes cluster.
+Developer Sandbox is a managed OpenShift environment, its cluster resources are tailored per development needs.
 
 == Discovering project resource limits
 
@@ -16,6 +16,21 @@ To discover the resource quota established for your namespace/project you can ru
 ----
 oc get resourcequota
 ----
+
+[.console-output]
+[source,text]
+----
+NAME                    REQUEST                                                                  LIMIT
+compute-build           requests.cpu: 0/3, requests.memory: 0/14Gi                               limits.cpu: 0/20, limits.memory: 0/14Gi
+compute-deploy          requests.cpu: 110m/3, requests.memory: 768Mi/30Gi                        limits.cpu: 1500m/30, limits.memory: 912Mi/30Gi
+compute-spacerequests   count/spacerequests.toolchain.dev.openshift.com: 0/1
+storage                 count/persistentvolumeclaims: 3/10, requests.storage: 40Gi/80Gi          limits.ephemeral-storage: 0/15Gi
+----
+
+NOTE: `compute-build` applies to short-lived (terminating) Pods such as S2I builds, while
+`compute-deploy` applies to long-running Pods. A build and a deployment therefore draw from two
+different budgets.
+
 At namespace/project level a LimitRange policy is employed to constrain resource allocations (to Pods or Containers).
 You can find out the LimitRange established for a namespace by running `oc get limitrange` and ask for its description via:
 
@@ -31,36 +46,52 @@ The output should be something similar to:
 [source,text]
 ----
 Name:       resource-limits
-Namespace:  anasandbox-dev
+Namespace:  <your-namespace>
 Type        Resource  Min  Max  Default Request  Default Limit  Max Limit/Request Ratio
 ----        --------  ---  ---  ---------------  -------------  -----------------------
+Container   memory    -    -    64Mi             1000Mi         -
 Container   cpu       -    -    10m              1              -
-Container   memory    -    -    64Mi             750Mi          -
 ----
 
-The above LimitRange has enforced the default request/limit for compute resources in the namespace and automatically injects them to Containers at runtime.
+The above LimitRange has enforced the default request/limit for compute resources in the namespace and automatically injects them into Containers at runtime.
+
+IMPORTANT: Because of this injection, a container that declares *no* `resources` section does not run
+unbounded here — it silently inherits `10m`/`64Mi` requests and `1`/`1000Mi` limits. Keep this in mind
+in the xref:monitoring.adoc[Sizing resource limits] chapter, where we look for containers without limits.
 
 == Adjusting container resources
 
 By using a tool called https://github.com/rakyll/hey[hey], you can run a load test on your server and see how your system performs under different circumstances.
 
-Let's run a hey command against the route exposed by previous deployment:
+Let's run a hey command against the route exposed by the previous deployment:
 
 [.console-input]
 [source,bash]
 ----
-export ROUTE_URL=http://$(kubectl get route greeting-app -o jsonpath='{.spec.host}')
-hey -n 10 -c 4 -v $ROUTE_URL/messages
+export ROUTE_URL=https://$(kubectl get route tutorial-app -o jsonpath='{.spec.host}') # <1>
+hey -z 60s -c 20 $ROUTE_URL/messages # <2>
 ----
+<1> The Quarkus OpenShift extension names the Service, Deployment and Route after the *application*
+    (the `artifactId` of your `pom.xml`), not after the container image, so the route is `tutorial-app`.
+<2> `hey` has no `-v` flag. A short run such as `-n 10 -c 4` also finishes before Prometheus scrapes
+    anything, so use a sustained load (`-z 60s`) to see a curve on the graphs.
 
-In the Developer Sandbox click on `Observe` and select the `Metric` tab. 
-You can select CPU Usage or Memory Usage query to check the resources consumed by each of your pods:
+TIP: `hey` needs no extra flags for the HTTPS route: the edge certificate is signed by the cluster's
+default wildcard certificate, which your system trust store already accepts.
+
+In the OpenShift console navigate to *Observe -> Metrics*.
+Switch the *Project:* selector at the top of the page to your own project — the page opens on
+*All Projects*, which a Developer Sandbox user is not allowed to query — then open the *Select query*
+drop-down and pick `CPU Usage` or `Memory Usage` to check the resources consumed by each of your pods:
 
 [.mt-4.center]
 image::cpu_usage.png[CPU Usage,600,600,align="center"]
 
 [.mt-4.center]
 image::memory_usage.png[Memory Usage,600,600,align="center"]
+
+NOTE: OpenShift 4.21 replaced the *Developer* / *Administrator* perspectives with a single
+*Core platform* navigation, and *Select query* is now a typeahead field.
 
 Based on that you can adjust your container resources in `application.properties`:
 
@@ -70,18 +101,47 @@ Based on that you can adjust your container resources in `application.properties
 # Configuration file
 # key = value
 
-quarkus.openshift.resources.limits.cpu=200m
-quarkus.openshift.resources.limits.memory=280Mi
+quarkus.openshift.resources.limits.cpu=500m
+quarkus.openshift.resources.limits.memory=400Mi
 quarkus.openshift.resources.requests.cpu=100m
-quarkus.openshift.resources.requests.memory=140Mi
+quarkus.openshift.resources.requests.memory=256Mi
 ----
 
-The resources in `target/kubernetes` folder will be reworked at compile time and contain these new definitions.
+[IMPORTANT]
+====
+Do not size the CPU limit purely on the steady-state measurement (this application idles at about
+`0.044` cores and `260M`). The JVM needs far more CPU while it boots, and the Quarkus OpenShift
+extension also generates a `startupProbe` that allows roughly 35 seconds
+(`initialDelaySeconds: 5`, `periodSeconds: 10`, `failureThreshold: 3`) for the application to report
+`/health/started`.
+
+With `limits.cpu=200m` the application takes ~37s to start, the probe fails, and the container is
+killed with exit code 143 and enters `CrashLoopBackOff`. With `limits.cpu=500m` it starts in ~13s.
+====
+
+The resources in the `target/kubernetes` folder will be reworked at compile time and contain these new definitions.
 
 You can now deploy the changes by using the command:
 
 [.console-input]
-[source,properties]
+[source,bash]
 ----
-mvn clean package -Dquarkus.kubernetes.deploy=true -Dquarkus.container-image.push=true
+./mvnw clean package -Dquarkus.openshift.deploy=true -Dquarkus.container-image.push=true
+----
+
+And verify the values that ended up on the Pod:
+
+[.console-input]
+[source,bash]
+----
+kubectl get deployment tutorial-app -o jsonpath='{.spec.template.spec.containers[0].resources}' | jq
+----
+
+[.console-output]
+[source,json]
+----
+{
+  "limits": { "cpu": "500m", "memory": "400Mi" },
+  "requests": { "cpu": "100m", "memory": "256Mi" }
+}
 ----

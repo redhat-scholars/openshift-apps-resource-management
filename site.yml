@@ -15,6 +15,9 @@ asciidoc:
   attributes:
     experimental: true
     release-version: master
+    quarkus-version: 3.39.4
+    graalvm-version: 25.0.0
+    project-name: tutorial-app
     page-pagination: true
   extensions:
     - ./lib/tab-block.js

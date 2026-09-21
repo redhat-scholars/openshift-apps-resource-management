@@ -24,15 +24,10 @@ endif::workshop[]
 
 [WARNING]
 ====
-GraalVM is only required if you intend to build a native image for you local operating system. If you want to create a container using a native image, you can use the Quarkus feature for this and don't need to install GraalVM locally.
-If you installed GraalVM, make sure to also install `native-image`
+GraalVM is only required if you intend to build a native image for your local operating system. If you want to create a container using a native image, you can use the Quarkus feature for this and don't need to install GraalVM locally.
 
-[#quarkus-tutorial-graalvm-native]
-[source,bash,subs="+macros,+attributes"]
-----
-gu install native-image
-----
-
+Since GraalVM for JDK 17 the `native-image` tool ships with the distribution, so the old
+`gu install native-image` step no longer exists — `gu` itself was removed.
 ====
 
 [tabs]
@@ -46,27 +41,41 @@ Please have them installed and configured before you get started with any of the
 |===
 |**Tool**|**macOS**|**Fedora**|**Windows**
 
-| **Docker**
-| https://www.docker.com/products/docker-desktop[Docker Desktop for Mac, window="_blank"]
-| `dnf install docker`
-| https://www.docker.com/products/docker-desktop[Docker Desktop for Windows, window="_blank"]
+| **Podman** or **Docker**
+| https://podman-desktop.io/downloads[Podman Desktop for Mac, window="_blank"]
+| `dnf install podman`
+| https://podman-desktop.io/downloads[Podman Desktop for Windows, window="_blank"]
 
 | **Java 21**
-| `brew tap AdoptOpenJDK/openjdk && brew cask install adoptopenjdk11`
-| `dnf install java-21-openjdk.x86_64`
-| https://adoptopenjdk.net[Windows] (Make sure you set the `JAVA_HOME` environment variable and add `%JAVA_HOME%\bin` to your `PATH`)
+| `brew install --cask temurin@21`
+| `dnf install java-21-openjdk-devel`
+| https://adoptium.net/temurin/releases/?version=21[Eclipse Temurin 21, window="_blank"] (Make sure you set the `JAVA_HOME` environment variable and add `%JAVA_HOME%\bin` to your `PATH`)
 
-| **Apache Maven 3.8.1+**
+| **Apache Maven 3.9.9+**
 | `brew install maven`
 | `dnf install maven`
 | https://maven.apache.org/download.cgi[Windows] (Make sure you set the `MAVEN_HOME` environment variable and add `%MAVEN_HOME%\bin` to your `PATH`)
 
-| **Graal VM**
-| https://github.com/graalvm/graalvm-ce-builds/releases/download/vm-{graalvm-version}/graalvm-ce-java11-darwin-amd64-{graalvm-version}.tar.gz[GraalVM Community Edition {graalvm-version}]
-| https://github.com/graalvm/graalvm-ce-builds/releases/download/vm-{graalvm-version}/graalvm-ce-java11-linux-amd64-{graalvm-version}.tar.gz[GraalVM Community Edition {graalvm-version}]
-| https://github.com/graalvm/graalvm-ce-builds/releases/download/vm-{graalvm-version}/graalvm-ce-java11-windows-amd64-{graalvm-version}.zip[GraalVM Community Edition {graalvm-version}]
+| **GraalVM for JDK 21** (optional)
+| https://github.com/graalvm/graalvm-ce-builds/releases[GraalVM Community Edition, window="_blank"]
+| https://github.com/graalvm/graalvm-ce-builds/releases[GraalVM Community Edition, window="_blank"]
+| https://github.com/graalvm/graalvm-ce-builds/releases[GraalVM Community Edition, window="_blank"]
+|===
 --
 ====
+
+[NOTE]
+====
+This revision of the tutorial was validated with *Quarkus 3.39.4* on *Java 21*, *Maven 3.9.11*,
+*Podman*, and *OpenShift 4.21* (Kubernetes 1.34). After the first chapter you can use the generated
+`./mvnw` wrapper, which downloads its own Maven 3.9.16 and removes the need for a system-wide Maven.
+====
+
+The chapters that interact with the cluster also use:
+
+* https://docs.redhat.com/en/documentation/openshift_container_platform/4.21/html/cli_tools/openshift-cli-oc[`oc`, window="_blank"] — the OpenShift CLI. `kubectl` is bundled with it, and the tutorial uses both names.
+* https://github.com/rakyll/hey[`hey`, window="_blank"] — a small HTTP load generator, used to put the application under load.
+* https://jqlang.github.io/jq/[`jq`, window="_blank"] — used to pretty-print JSON returned by `kubectl -o jsonpath`.
 
 == Red Hat OpenShift development cluster
 

@@ -7,27 +7,29 @@ The easiest way to create a new Quarkus project is to open a terminal and run th
 [.console-input]
 [source,bash,subs="+macros,+attributes"]
 ----
-mvn "io.quarkus:quarkus-maven-plugin:create" \
+mvn "io.quarkus.platform:quarkus-maven-plugin:3.39.4:create" \ # <1>
 -DprojectGroupId="com.redhat.developers" \
--DprojectArtifactId="another-greeting-app" \
+-DprojectArtifactId="tutorial-app" \
 -DprojectVersion="1.0-SNAPSHOT" \
 -DclassName="GreetingResource" \
--Dpath="messages" 
+-Dpath="messages"
 ----
+<1> Quarkus 3 publishes the plugin under the `io.quarkus.platform` group id. Pinning the version keeps
+    every student on the same platform BOM; drop `:3.39.4` to always get the latest release.
 
 If you are a Windows user, simply inline the command:
 
 [.console-input]
 [source,bash,subs="+macros,+attributes"]
 ----
-mvn "io.quarkus:quarkus-maven-plugin:create" -DprojectGroupId="com.redhat.developers" -DprojectArtifactId="tutorial-app" -DprojectVersion="1.0-SNAPSHOT" -DclassName="GreetingResource" -Dpath="messages"
+mvn "io.quarkus.platform:quarkus-maven-plugin:3.39.4:create" -DprojectGroupId="com.redhat.developers" -DprojectArtifactId="tutorial-app" -DprojectVersion="1.0-SNAPSHOT" -DclassName="GreetingResource" -Dpath="messages"
 ----
 
-The generated project contains an endpoint GreetingResource. You can customize the extensions that your project will use by running:
+The generated project contains an endpoint `GreetingResource` served at `/messages`. You can customize the extensions that your project will use by running:
 [.console-input]
 [source,bash,subs="+macros,+attributes"]
 ----
-mvn quarkus:add-extension -Dextensions="quarkus-rest-jsonb,quarkus-jdbc-postgresql,quarkus-hibernate-orm-panache, quarkus-smallrye-openapi,quarkus-container-image-jib,quarkus-openshift"
+./mvnw quarkus:add-extension -Dextensions="quarkus-rest-jsonb,quarkus-jdbc-postgresql,quarkus-hibernate-orm-panache,quarkus-smallrye-openapi,quarkus-container-image-jib,quarkus-openshift"
 ----
 
 Using the above command will enrich the project to use the following Quarkus extensions:
@@ -47,10 +49,19 @@ The benefit of using the CLI is that it will download maven, Java and the code s
 == Add your first configuration
 
 Because both Jib and OpenShift extensions are present in the configuration, you need to decide which one you would like to use to build your container images.
-Below is the line for specifying jib:
+If you skip this step the build fails straight away:
 
 [.console-output]
-[source,bash]
+[source,text]
+----
+[error]: Build step io.quarkus.kubernetes.deployment.OpenshiftProcessor#populateInternalRegistry threw an exception: java.lang.IllegalStateException: quarkus-container-image-jib and quarkus-container-image-openshift were detected, at most one container-image extension can be present.
+Either remove the unneeded ones, or select one by setting any of the following configuration properties: 'quarkus.container-image.builder=openshift', 'quarkus.container-image.builder=jib'
+----
+
+Add the following line to `src/main/resources/application.properties` to select jib:
+
+[.console-input]
+[source,properties]
 ----
 quarkus.container-image.builder=jib
 ----
@@ -59,9 +70,9 @@ quarkus.container-image.builder=jib
 
 include::ROOT:partial$compile-and-run.adoc[]
 
-Notice how *fast* Quarkus was ready to serve your requests. In this particular example Quarkus only required *0.016s* to start.
+Notice how *fast* Quarkus was ready to serve your requests. In this particular example Quarkus only required *0.884s* to start on the JVM.
 
-You can open your browser with the url `http://localhost:8080/messages[window="_blank"]` and you should see a response like `Hello RESTEasy`.
+You can open your browser with the url `http://localhost:8080/messages[window="_blank"]` and you should see a response like `Hello from Quarkus REST`.
 
 Or else if you're a CLI person, you can run a `curl` command like:
 
@@ -74,12 +85,12 @@ curl localhost:8080/messages
 [.console-output]
 [source,bash]
 ----
-Hello RESTEasy
+Hello from Quarkus REST
 ----
 
 == Dev UI
 
-Quarkus now ships with a new experimental Dev UI, which is available in dev mode at http://localhost:8080/q/dev[/q/dev] by default.
+Quarkus ships with a Dev UI, which is available in dev mode at http://localhost:8080/q/dev-ui[/q/dev-ui] by default (the old `/q/dev` address still works and redirects there).
 It allows you to quickly visualize all the extensions currently loaded, see their status and go directly to their documentation.
 
 == Stopping the application
@@ -89,10 +100,10 @@ You can stop your running application by issuing a `CTRL+C` in your terminal.
 [.console-output]
 [source,bash]
 ----
-^C2020-05-10 23:11:03,419 INFO  [io.quarkus] (main) tutorial-app stopped in 0.007s
+^C2026-09-21 14:08:56,252 INFO  [io.quarkus] (Shutdown thread) tutorial-app stopped in 0.029s
 ----
 
-Quarkus was able to stop in just *0.007s*. Fast to start, fast to stop. Fast always!
+Quarkus was able to stop in just *0.029s*. Fast to start, fast to stop. Fast always!
 
 == Testing your application
 
@@ -109,6 +120,20 @@ You can run the test in your IDE or by running Maven:
 ----
 ./mvnw clean test
 ----
+
+[.console-output]
+[source,text]
+----
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0
+----
+
+[TIP]
+====
+Because `quarkus-jdbc-postgresql` is on the classpath and no test datasource is configured yet, Quarkus
+*Dev Services* starts a throwaway PostgreSQL container for the test run. You therefore need a working
+container runtime (Podman or Docker). The xref:configuration.adoc[Configuration] chapter replaces this
+with an in-memory H2 datasource for the `test` profile.
+====
 
 == Open the Project in your IDE
 
@@ -146,23 +171,23 @@ Let's start again in _Live Coding_ mode by invoking `mvn`:
 [.console-input]
 [source,bash]
 ----
-mvn quarkus:dev
+./mvnw quarkus:dev
 ----
 
 Quarkus will start in development mode as normal, but down the bottom of the screen you should see the following:
-[.console-input]
-[source,bash]
+[.console-output]
+[source,text]
 ----
 Tests paused
-Press [r] to resume testing, [o] Toggle test output, [h] for more options>
+Press [e] to edit command line args (currently ''), [r] to resume testing, [o] Toggle test output, [h] for more options>
 ----
 
 Press `r` and the tests will start running. You should see the status change down the bottom of the screen as they are running, and it should finish similar to this:
 
-[.console-input]
-[source,bash]
+[.console-output]
+[source,text]
 ----
-All 1 test is passing (0 skipped), 1 test was run in 11705ms. Tests completed at 16:02:32.
+All 1 test is passing (0 skipped), 1 test was run in 12100ms. Tests completed at 14:12:30.
 ----
 
 TIP: If you don’t want to have continuous testing enabled, you can change this by adding `quarkus.test.continuous-testing=disabled` in `application.properties`.
