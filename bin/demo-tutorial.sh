@@ -748,7 +748,8 @@ PROPS
       if curl -s --max-time 15 --resolve hellosalut.stefanbohacek.com:443:161.35.101.200 \
            'https://hellosalut.stefanbohacek.com/?lang=en' | grep -q '"hello"'; then
         note "  reachable when pinned to its IP => your resolver is the problem"
-        note "  try: sudo systemctl restart systemd-resolved"
+        note "  try 'resolvectl flush-caches' first — it needs no root"
+        note "  if that does not help: sudo systemctl restart systemd-resolved"
       fi
     fi
   fi
