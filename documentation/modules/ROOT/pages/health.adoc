@@ -178,7 +178,30 @@ public interface HelloService {
 }
 ----
 
-And add in `src/main/resources/application.properties`:
+And add in `src/main/resources/application.properties`, using the greeting service URL your
+instructor gave you:
+
+[.console-input]
+[source,properties,subs="+macros,+attributes"]
+----
+com.redhat.developers.HelloService/mp-rest/url=https://greeting-api-<namespace>.<cluster-domain>
+----
+
+Whatever the URL, it serves the same JSON directly at `/`, which is why both `@Path`
+annotations above are `/`:
+
+[.console-output]
+[source,json]
+----
+{"code":"en","hello":"Hello"}
+----
+
+[NOTE]
+====
+That service is `apps/greeting-api` in this repository, deployed into the cluster by whoever
+runs the workshop — see xref:greeting-api.adoc[Greeting API (instructor setup)]. Working
+through the tutorial on your own? Deploy it yourself with the three commands in that chapter,
+or fall back to the public API it stands in for:
 
 [.console-input]
 [source,properties,subs="+macros,+attributes"]
@@ -186,19 +209,15 @@ And add in `src/main/resources/application.properties`:
 com.redhat.developers.HelloService/mp-rest/url=https://hellosalut.stefanbohacek.com
 ----
 
-[IMPORTANT]
-====
-The hellosalut API used to live at `https://fourtonfish.com/hellosalut/`. That address now answers
-`301 Moved Permanently` towards `https://stefanbohacek.com/hellosalut/`. The MicroProfile REST Client
-does not follow redirects by default, and the `UrlHealthCheck` you add below asserts a `200`, so the
-old host silently turns the readiness probe red. Use `https://hellosalut.stefanbohacek.com` — it serves
-the same JSON directly at `/`, which is why both `@Path` annotations above are `/`.
+Be aware of what you are taking on. `MessageInitializer` below calls this URL from a
+`@Startup` hook, so if the host is unreachable the application does not start at all — you
+get `Failed to start quarkus` and an `UnknownHostException`, not a red health check. A flaky
+network or a busy conference Wi-Fi is enough.
 
-[.console-output]
-[source,json]
-----
-{"code":"en","hello":"Hello"}
-----
+Note also that the public API used to live at `https://fourtonfish.com/hellosalut/`. That
+address now answers `301 Moved Permanently`, the MicroProfile REST Client does not follow
+redirects by default, and the `UrlHealthCheck` you add below asserts a `200` — so the old
+host silently turns the readiness probe red.
 ====
 
 === Define actions at startup initialization
@@ -296,7 +315,9 @@ The Quarkus Kubernetes/OpenShift extension will take into account your custom pr
 the three probes in `target/kubernetes/openshift.yml` now point at `/health/live`, `/health/ready` and `/health/started`.
 If you reload the context in DevMode (by pressing `s`), you would notice that your Kubernetes/OpenShift manifests have changed and take into account your new configuration.
 
-As the database readiness is already assessed, we can customize another readiness probe to check the availability of the endpoint `https://hellosalut.stefanbohacek.com`:
+As the database readiness is already assessed, we can customize another readiness probe to
+check the availability of the greeting endpoint. Note that it reads the very same property
+you set above, so the check follows whichever URL you configured:
 
 
 [.console-input]
@@ -361,7 +382,7 @@ curl -s localhost:8080/health/ready | jq
       "name": "external-url-check",
       "status": "UP",
       "data": {
-        "host": "GET https://hellosalut.stefanbohacek.com/?lang=en"
+        "host": "GET https://greeting-api-<namespace>.<cluster-domain>/?lang=en"
       }
     },
     {

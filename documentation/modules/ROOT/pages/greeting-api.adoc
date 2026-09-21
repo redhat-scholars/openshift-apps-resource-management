@@ -1,0 +1,222 @@
+= Greeting API (instructor setup)
+include::_attributes.adoc[]
+
+[IMPORTANT]
+====
+This chapter is for whoever *runs* the workshop, not for the students. Do it once, before
+the session, and hand the students the URL it prints. Students never touch this page.
+====
+
+== Why this exists
+
+In xref:health.adoc[Define custom health checks] the application calls an external greeting
+service in two places:
+
+* `MessageInitializer` calls it from a `@Startup` hook, to overwrite the rows seeded by
+  `import.sql`.
+* `CustomHealthCheck` asserts a `200` from it in a `@Readiness` probe.
+
+The first of those is the problem. A `@Startup` hook that throws aborts the boot, so if the
+service is unreachable the application does not come up *at all* — students see
+`Failed to start quarkus` rather than a red readiness check. On a venue network, with
+thirty laptops resolving the same third-party host at the same moment, that is a real risk.
+
+`apps/greeting-api` is a small Quarkus service that serves the same contract. Deploy it into
+the workshop namespace and the exercise no longer depends on anybody else's uptime.
+
+== The contract
+
+It answers at `/`, with the same JSON shape and the same fallback as the public API:
+
+[.console-output]
+[source,text]
+----
+GET /?lang=en   ->  {"code":"en","hello":"Hello"}
+GET /?lang=es   ->  {"code":"es","hello":"Hola"}
+GET /?lang=ro   ->  {"code":"ro","hello":"Salut"}
+GET /?lang=fr   ->  {"code":"fr","hello":"Salut"}
+GET /?lang=xx   ->  {"code":"none","hello":"Hello"}
+----
+
+Those four languages are the ones `import.sql` seeds, and the values deliberately differ
+from the seeded ones — `Salut` rather than `Bonjour` for French — so a student can still see
+that `MessageInitializer` really did overwrite the rows.
+
+Because the path and the shape are unchanged, *the student's code is unchanged*. The
+`HelloService` interface, the `ExternalGreeting` DTO and the `UrlHealthCheck` are all exactly
+as xref:health.adoc[the chapter] writes them. Only one property value differs.
+
+== Deploy it
+
+=== Build on the cluster
+
+This needs nothing but `oc` and a clone of this repository — no local Java, Maven, Podman or
+registry account. The source is compiled on the cluster by the UBI 9 OpenJDK 21 builder.
+
+From the repository root:
+
+[.console-input]
+[source,bash,subs="+macros,+attributes"]
+----
+oc new-build registry.access.redhat.com/ubi9/openjdk-21:latest --binary --name=greeting-api \
+  --env MAVEN_S2I_ARTIFACT_DIRS=target/quarkus-app \ # <1>
+  --env S2I_SOURCE_DEPLOYMENTS_FILTER='app lib quarkus quarkus-run.jar' \
+  --env JAVA_APP_JAR=quarkus-run.jar # <2>
+----
+<1> Quarkus produces a _fast-jar_ layout under `target/quarkus-app/` rather than a single
+    executable jar. Without these two variables the s2i assemble script finds nothing to
+    deploy and the resulting image starts and immediately exits.
+<2> The jar to launch inside that layout.
+
+Then send the sources up and build:
+
+[.console-input]
+[source,bash,subs="+macros,+attributes"]
+----
+oc start-build greeting-api --from-dir=apps/greeting-api --follow
+----
+
+The first build downloads the Maven dependencies and takes a few minutes.
+
+[TIP]
+====
+Once your changes are on the default branch you can skip the upload and build straight from
+Git instead, replacing both commands above with:
+
+[.console-input]
+[source,bash,subs="+macros,+attributes"]
+----
+oc new-build registry.access.redhat.com/ubi9/openjdk-21:latest~https://github.com/redhat-scholars/openshift-apps-resource-management \
+  --context-dir=apps/greeting-api --name=greeting-api \
+  --env MAVEN_S2I_ARTIFACT_DIRS=target/quarkus-app \
+  --env S2I_SOURCE_DEPLOYMENTS_FILTER='app lib quarkus quarkus-run.jar' \
+  --env JAVA_APP_JAR=quarkus-run.jar
+----
+====
+
+=== Create the Deployment, Service and Route
+
+[.console-input]
+[source,bash,subs="+macros,+attributes"]
+----
+oc apply -f apps/kubefiles/greeting-api.yaml
+oc rollout status deployment/greeting-api
+----
+
+[.console-output]
+[source,text]
+----
+deployment "greeting-api" successfully rolled out
+----
+
+The manifest asks for 50m CPU and 64Mi of memory, capped at 500m and 256Mi. That is
+deliberately small: it shares the namespace with a tutorial that spends several chapters
+filling the quota up on purpose.
+
+[NOTE]
+====
+Use the manifest rather than `oc new-app greeting-api`. `oc new-app` publishes the Service
+on port 8080, while the manifest publishes port 80, which keeps the in-cluster URL
+(`http://greeting-api`) the same shape as the Route.
+====
+
+=== Alternative: build locally with Jib and push to a registry
+
+If you would rather use the same Jib and quay.io path the tutorial itself documents:
+
+[.console-input]
+[source,bash,subs="+macros,+attributes"]
+----
+cd apps/greeting-api
+REGISTRY_ORG=<your-quay-org> mvn clean package \
+  -Dquarkus.openshift.deploy=true -Dquarkus.container-image.push=true
+----
+
+[WARNING]
+====
+quay.io creates a new repository as *private*. The cluster then cannot pull it and the Pod
+sits in `ImagePullBackOff` with `unauthorized: access to the requested resource is not
+authorized`. Make `<your-quay-org>/greeting-api` public in the quay.io UI, or link a pull
+secret:
+
+[.console-input]
+[source,bash,subs="+macros,+attributes"]
+----
+oc create secret docker-registry quay --docker-server=quay.io \
+  --docker-username=<your-quay-org> --docker-password=<token>
+oc secrets link default quay --for=pull
+----
+====
+
+== Verify it
+
+[.console-input]
+[source,bash,subs="+macros,+attributes"]
+----
+GREETING_URL=https://$(oc get route greeting-api -o jsonpath='{.spec.host}')
+echo $GREETING_URL
+for l in en es ro fr xx; do curl -s "$GREETING_URL/?lang=$l"; echo; done
+----
+
+[.console-output]
+[source,json]
+----
+{"code":"en","hello":"Hello"}
+{"code":"es","hello":"Hola"}
+{"code":"ro","hello":"Salut"}
+{"code":"fr","hello":"Salut"}
+{"code":"none","hello":"Hello"}
+----
+
+== Hand the URL to the students
+
+Give them the value of `$GREETING_URL`. In xref:health.adoc[Define custom health checks]
+they put it in `src/main/resources/application.properties`:
+
+[.console-input]
+[source,properties,subs="+macros,+attributes"]
+----
+com.redhat.developers.HelloService/mp-rest/url=https://greeting-api-<namespace>.<cluster-domain>
+----
+
+The Route is deliberately the URL you hand out, rather than the in-cluster
+`http://greeting-api`. Students run the application on their own laptop in dev mode for most
+of the tutorial and only later deploy it to the cluster, and the Route is the one address
+that answers in both situations.
+
+[NOTE]
+====
+If every student works in their own namespace, each of them needs their own copy of the
+service — or you deploy one copy in a shared namespace and hand out that single Route. The
+Route is public, so a service in any namespace of the same cluster is reachable from all of
+them.
+====
+
+== Add a language
+
+Translations are configuration rather than code, so there is nothing to rebuild:
+
+[.console-input]
+[source,bash,subs="+macros,+attributes"]
+----
+oc set env deployment/greeting-api GREETING_TRANSLATIONS_JA=Konnichiwa
+oc rollout status deployment/greeting-api
+curl -s "$GREETING_URL/?lang=ja"
+----
+
+[.console-output]
+[source,json]
+----
+{"code":"ja","hello":"Konnichiwa"}
+----
+
+The built-in set is in `apps/greeting-api/src/main/resources/application.properties`.
+
+== Tear it down
+
+[.console-input]
+[source,bash,subs="+macros,+attributes"]
+----
+oc delete -f apps/kubefiles/greeting-api.yaml
+oc delete bc,is greeting-api --ignore-not-found
+----

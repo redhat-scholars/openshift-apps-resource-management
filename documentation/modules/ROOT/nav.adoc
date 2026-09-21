@@ -1,5 +1,6 @@
 * xref:setup.adoc[Requirements]
 ** xref:setup.adoc[Setup]
+** xref:greeting-api.adoc[Greeting API (instructor setup)]
 
 * xref:starter.adoc[Development Practices]
 ** xref:starter.adoc[Bootstrap project]

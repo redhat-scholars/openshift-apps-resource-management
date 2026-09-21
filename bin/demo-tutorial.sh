@@ -23,7 +23,16 @@
 #   REGISTRY_ORG     organisation                (default: your registry login)
 #   IMAGE_NAME       image name                  (default: greeting-app)
 #   PG_VERSION       postgresql imagestream tag  (default: 15-el9)
+#   GREETING_MODE    cluster | public            (default: cluster)
+#   GREETING_URL     use this URL, deploy nothing(default: the Route of the deployed one)
 #   SKIP_SLOW        1 = skip the OOMKill wait   (default: 0)
+#
+# GREETING_MODE=cluster builds and deploys apps/greeting-api into the namespace and points
+# the tutorial application at its Route. That is the documented setup and it removes the
+# dependency on a third-party website — MessageInitializer calls the greeting URL from a
+# @Startup hook, so an unreachable host means the application does not boot at all.
+# GREETING_MODE=public uses hellosalut.stefanbohacek.com instead, to check that the fallback
+# documented in health.adoc still works.
 #
 # IMAGE_MODE=quay is the default because it is the path the documentation describes —
 # Jib builds the image locally and pushes it to quay.io. Run `podman login quay.io`
@@ -44,6 +53,9 @@ REGISTRY=${REGISTRY:-quay.io}
 REGISTRY_ORG=${REGISTRY_ORG:-myrepo}
 IMAGE_NAME=${IMAGE_NAME:-greeting-app}
 PG_VERSION=${PG_VERSION:-15-el9}
+GREETING_MODE=${GREETING_MODE:-cluster}
+GREETING_URL=${GREETING_URL:-}
+PUBLIC_GREETING_URL=https://hellosalut.stefanbohacek.com
 SKIP_SLOW=${SKIP_SLOW:-0}
 REPO_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 KUBEFILES="$REPO_ROOT/apps/kubefiles"
@@ -575,6 +587,57 @@ pg_ready() {
     | grep -q true
 }
 
+# Builds and deploys apps/greeting-api if it is not already serving, and sets GREETING_URL
+# to its Route. Idempotent: the s2i build is the slow part and only runs once per namespace,
+# so re-running the rehearsal reuses what is already there.
+#
+# Built on the cluster rather than with Jib because that needs no registry at all. A fresh
+# quay.io repository is created private, the cluster cannot pull it, and the Pod sits in
+# ImagePullBackOff — a trap not worth handing to an instructor for a throwaway helper.
+ensure_greeting_api() {
+  local host
+  host=$(oc get route greeting-api -o jsonpath='{.spec.host}' 2>/dev/null || true)
+  if [[ -n "$host" ]] && curl -sf -o /dev/null --max-time 20 "https://$host/?lang=en"; then
+    GREETING_URL="https://$host"
+    ok "greeting-api already serving at $GREETING_URL"
+    return 0
+  fi
+
+  banner "Deploying apps/greeting-api — the stand-in for the public greeting service"
+  if ! oc get bc greeting-api >/dev/null 2>&1; then
+    # Quarkus produces a fast-jar layout under target/quarkus-app rather than one
+    # executable jar. Without these three variables s2i finds nothing to deploy and the
+    # image starts and exits immediately.
+    run oc new-build registry.access.redhat.com/ubi9/openjdk-21:latest --binary --name=greeting-api \
+      --env MAVEN_S2I_ARTIFACT_DIRS=target/quarkus-app \
+      --env S2I_SOURCE_DEPLOYMENTS_FILTER='app lib quarkus quarkus-run.jar' \
+      --env JAVA_APP_JAR=quarkus-run.jar
+  fi
+  must "greeting-api image built on the cluster" \
+    oc start-build greeting-api --from-dir="$REPO_ROOT/apps/greeting-api" --follow
+  run oc apply -f "$KUBEFILES/greeting-api.yaml"
+  must "greeting-api rolled out" oc rollout status deployment/greeting-api --timeout=240s
+
+  host=$(oc get route greeting-api -o jsonpath='{.spec.host}' 2>/dev/null || true)
+  [[ -n "$host" ]] || { bad "greeting-api Route has no host"; return 1; }
+  GREETING_URL="https://$host"
+  wait_for 120 "greeting-api answers at $GREETING_URL" \
+    curl -sf -o /dev/null "$GREETING_URL/?lang=en"
+}
+
+# Resolves the greeting URL the tutorial application will be pointed at, honouring
+# GREETING_URL, then GREETING_MODE.
+resolve_greeting_url() {
+  if [[ -n "$GREETING_URL" ]]; then
+    ok "using the greeting service you supplied: $GREETING_URL"
+  elif [[ "$GREETING_MODE" == "public" ]]; then
+    GREETING_URL=$PUBLIC_GREETING_URL
+    note "GREETING_MODE=public — rehearsing the third-party fallback, not the documented setup"
+  else
+    ensure_greeting_api || return 1
+  fi
+}
+
 # =============================================================================== 7
 step_health() {
   local pkg="$APP_DIR/src/main/java/com/redhat/developers"
@@ -710,48 +773,57 @@ public class CustomHealthCheck {
 }
 JAVA
 
-  cat >> "$res/application.properties" <<'PROPS'
+  resolve_greeting_url || return 1
 
-com.redhat.developers.HelloService/mp-rest/url=https://hellosalut.stefanbohacek.com
+  cat >> "$res/application.properties" <<PROPS
+
+com.redhat.developers.HelloService/mp-rest/url=$GREETING_URL
 
 quarkus.smallrye-health.root-path=/health
 PROPS
 
-  banner "The old hellosalut host must still be a redirect — that is why the URL changed"
+  # Retried: MessageInitializer calls this during startup, so if it is unreachable the
+  # application does not boot at all. A single failed probe means a blip; five in a row
+  # means the demo will not run.
+  local greeting="" try
+  for try in 1 2 3 4 5; do
+    greeting=$(curl -s --max-time 20 "$GREETING_URL/?lang=en" || true)
+    [[ "$greeting" == *'"hello"'* ]] && break
+    note "attempt $try got nothing from $GREETING_URL — retrying"
+    sleep 10
+  done
+  if [[ "$greeting" == *'"hello"'* ]]; then
+    ok "$GREETING_URL serves the JSON at / — $greeting"
+  else
+    bad "$GREETING_URL unreachable after 5 attempts — the app will NOT start"
+    note "MessageInitializer calls it with @Startup; a failure there aborts the boot."
+    if [[ "$GREETING_URL" == "$PUBLIC_GREETING_URL" ]]; then
+      # Almost always the local resolver rather than the site. Separating the two here saves
+      # a lot of time: if --resolve succeeds, the network is fine and DNS is the problem.
+      if getent hosts hellosalut.stefanbohacek.com >/dev/null 2>&1; then
+        note "DNS resolves, so the site itself is down or blocked"
+      else
+        note "DNS does NOT resolve the host — this is local, not the site. Checking directly:"
+        if curl -s --max-time 15 --resolve hellosalut.stefanbohacek.com:443:161.35.101.200 \
+             'https://hellosalut.stefanbohacek.com/?lang=en' | grep -q '"hello"'; then
+          note "  reachable when pinned to its IP => your resolver is the problem"
+          note "  try 'resolvectl flush-caches' first — it needs no root"
+          note "  if that does not help: sudo systemctl restart systemd-resolved"
+        fi
+      fi
+      note "this is exactly why GREETING_MODE defaults to 'cluster' — drop the override"
+    else
+      run oc get pods -l app=greeting-api || true
+      oc logs -l app=greeting-api --tail=20 2>/dev/null | sed 's/^/    /' >&2 || true
+    fi
+  fi
+
+  banner "The old hellosalut host must still be a redirect — that is why health.adoc warns about it"
   local code; code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "https://fourtonfish.com/hellosalut/?lang=en" || echo 000)
   if [[ "$code" == "301" || "$code" == "302" ]]; then
     ok "fourtonfish.com still answers $code — health.adoc's warning is accurate"
   else
     note "fourtonfish.com answered $code (health.adoc says it redirects); recheck the chapter"
-  fi
-  # Retried: this is a third-party API over the venue network, and MessageInitializer calls
-  # it during startup — if it is unreachable the application does not boot at all. A single
-  # failed probe means a blip; three in a row means the demo will not run.
-  local greeting="" try
-  for try in 1 2 3 4 5; do
-    greeting=$(curl -s --max-time 20 'https://hellosalut.stefanbohacek.com/?lang=en' || true)
-    [[ "$greeting" == *'"hello"'* ]] && break
-    note "attempt $try got nothing from hellosalut.stefanbohacek.com — retrying"
-    sleep 10
-  done
-  if [[ "$greeting" == *'"hello"'* ]]; then
-    ok "hellosalut.stefanbohacek.com serves the JSON at /"
-  else
-    bad "hellosalut.stefanbohacek.com unreachable after 5 attempts — the app will NOT start"
-    note "MessageInitializer calls this API with @Startup; a failure there aborts the boot."
-    # Almost always the local resolver rather than the site. Separating the two here saves
-    # a lot of time: if --resolve succeeds, the network is fine and DNS is the problem.
-    if getent hosts hellosalut.stefanbohacek.com >/dev/null 2>&1; then
-      note "DNS resolves, so the site itself is down or blocked"
-    else
-      note "DNS does NOT resolve the host — this is local, not the site. Checking directly:"
-      if curl -s --max-time 15 --resolve hellosalut.stefanbohacek.com:443:161.35.101.200 \
-           'https://hellosalut.stefanbohacek.com/?lang=en' | grep -q '"hello"'; then
-        note "  reachable when pinned to its IP => your resolver is the problem"
-        note "  try 'resolvectl flush-caches' first — it needs no root"
-        note "  if that does not help: sudo systemctl restart systemd-resolved"
-      fi
-    fi
   fi
 
   run mvnw clean package -DskipTests
@@ -1252,6 +1324,9 @@ step_cleanup() {
     -l app.kubernetes.io/name=tutorial-app --ignore-not-found || true
   run oc delete cm country-nl --ignore-not-found || true
   run oc delete is "$IMAGE_NAME" --ignore-not-found || true
+  [ -f "$KUBEFILES/greeting-api.yaml" ] && \
+    run oc delete -f "$KUBEFILES/greeting-api.yaml" --ignore-not-found || true
+  run oc delete bc,is greeting-api --ignore-not-found || true
   # Explicit types rather than 'all': that category expands to CRDs this user cannot list
   # (applications.app.k8s.io on the Sandbox), so oc ends with a Forbidden error and exit 1
   # even though every object was in fact deleted — alarming, and it hides real failures.
