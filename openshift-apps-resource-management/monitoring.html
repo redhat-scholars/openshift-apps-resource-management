@@ -442,6 +442,34 @@ curl localhost:8080/consume</code></pre>
 <div class="paragraph">
 <p>After that, you&#8217;ll be exited from inside the container as it was restarted because of the memory limit.</p>
 </div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Your shell is dropped with <code>command terminated with exit code 137</code>. Exit code 137 is
+<code>128 + 9</code>, meaning the process received <code>SIGKILL</code>.</p>
+</div>
+<div class="paragraph">
+<p>The shell and the <code>curl</code> you launched run inside the container&#8217;s cgroup, so they count
+against the same 500Mi limit and are themselves candidates for the kernel&#8217;s OOM killer —
+in practice they are killed <strong>first</strong>, a second or two before the JVM is. So the session
+dies, and the container follows moments later. Give it a few seconds before running the
+<code>describe</code> below, otherwise <code>Last State</code> may still be empty.</p>
+</div>
+<div class="paragraph">
+<p>If you script this rather than typing it interactively, drive the endpoint from outside
+the container (<code>kubectl port-forward &lt;pod&gt; 18080:8080</code> and then
+<code>curl localhost:18080/consume</code>). That leaves the JVM as the only process allocating
+memory, and the container is reliably the one that gets killed.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
 <div class="paragraph">
 <p>Run the following command to check that an <code>OOM</code> error was thrown:</p>
 </div>
