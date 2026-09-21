@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Greeting API (instructor setup) :: Efficient Resource Management with OpenShift</title>
+    <link rel="canonical" href="https://redhat-scholars.github.io/openshift-apps-resource-management/greeting-api.html">
+    <link rel="prev" href="setup.html">
+    <link rel="next" href="starter.html">
+    <meta name="generator" content="Antora 3.0.0">
+    <link rel="stylesheet" href="../_/css/site.css">
+  </head>
+  <body class="article">
+<header class="header">
+  <nav class="navbar">
+    <div class="navbar-brand">
+      <a class="navbar-item" href="https://developers.redhat.com" target="_blank"><img src="../_/img/NewRHDFullLogo_4-color_white-wordmark.png" height="40px" alt="Red Hat Developer Program"></a>
+      <a class="navbar-item" style="font-size: 24px; color: white" href="https://redhat-scholars.github.io">Efficient Resource Management with OpenShift</a>
+      <button class="navbar-burger" data-target="topbar-nav">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+    </div>
+    <div id="topbar-nav" class="navbar-menu">
+      <div class="navbar-end">
+        <a class="navbar-item" href="https://developers.redhat.com/ebooks/" target="_blank">Books</a>
+        <a class="navbar-item" href="https://developers.redhat.com/cheatsheets/" target="_blank">Cheat Sheets</a>
+        <a class="navbar-item" href="https://developers.redhat.com/events/" target="_blank">Upcoming Events</a>
+        <div class="navbar-item has-dropdown is-hoverable">
+          <a class="navbar-link" href="#">More Tutorials</a>
+          <div class="navbar-dropdown">
+            <a class="navbar-item" href="https://redhat-developer-demos.github.io/kubernetes-tutorial/" target="_blank">Kubernetes</a>
+            <a class="navbar-item" href="https://redhat-developer-demos.github.io/istio-tutorial/" target="_blank">Istio</a>
+            <a class="navbar-item" href="https://redhat-developer-demos.github.io/quarkus-tutorial/" target="_blank">Quarkus</a>
+            <a class="navbar-item" href="https://redhat-developer-demos.github.io/knative-tutorial/" target="_blank">Knative</a>
+            <a class="navbar-item" href="https://redhat-developer-demos.github.io/tekton-tutorial/" target="_blank">Tekton</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+</header>
+<div class="body">
+<div class="nav-container" data-component="openshift-apps-resource-management" data-version="master">
+  <aside class="nav">
+    <div class="panels">
+<div class="nav-panel-menu is-active" data-panel="menu">
+  <nav class="nav-menu">
+    <h3 class="title"><a href="index.html"></a></h3>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <a class="nav-link" href="setup.html">Requirements</a>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="setup.html">Setup</a>
+  </li>
+  <li class="nav-item is-current-page" data-depth="2">
+    <a class="nav-link" href="greeting-api.html">Greeting API (instructor setup)</a>
+  </li>
+</ul>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <button class="nav-item-toggle"></button>
+    <a class="nav-link" href="starter.html">Development Practices</a>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="starter.html">Bootstrap project</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="configuration.html">Adapt configurations</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="health.html">Define custom health checks</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="openshift.html">Deploy to OpenShift</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="resources.html">Adjust resource quotas</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="separate.html">Test configurations</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="metrics.html">Tailor metrics</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="monitoring.html">Sizing resource limits</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+</ul>
+  </nav>
+</div>
+    </div>
+  </aside>
+</div>
+<main class="article">
+<div class="toolbar" role="navigation">
+<button class="nav-toggle"></button>
+  <a href="index.html" class="home-link"></a>
+<nav class="breadcrumbs" aria-label="breadcrumbs">
+  <ul>
+    <li><a href="index.html">Efficient Resource Management with OpenShift</a></li>
+    <li><a href="setup.html">Requirements</a></li>
+    <li><a href="greeting-api.html">Greeting API (instructor setup)</a></li>
+  </ul>
+</nav>
+  <div class="edit-this-page"><a href="https://github.com/redhat-scholars/openshift-apps-resource-management/edit/master/documentation/modules/ROOT/pages/greeting-api.adoc">Edit this Page</a></div>
+  </div>
+  <div class="content">
+<article class="doc">
+<h1 class="page">Greeting API (instructor setup)</h1>
+<div id="preamble">
+<div class="sectionbody">
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>This chapter is for whoever <strong>runs</strong> the workshop, not for the students. Do it once, before
+the session, and hand the students the URL it prints. Students never touch this page.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_why_this_exists"><a class="anchor" href="#_why_this_exists"></a>Why this exists</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>In <a href="health.html" class="xref page">Define custom health checks</a> the application calls an external greeting
+service in two places:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>MessageInitializer</code> calls it from a <code>@Startup</code> hook, to overwrite the rows seeded by
+<code>import.sql</code>.</p>
+</li>
+<li>
+<p><code>CustomHealthCheck</code> asserts a <code>200</code> from it in a <code>@Readiness</code> probe.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>The first of those is the problem. A <code>@Startup</code> hook that throws aborts the boot, so if the
+service is unreachable the application does not come up <strong>at all</strong> — students see
+<code>Failed to start quarkus</code> rather than a red readiness check. On a venue network, with
+thirty laptops resolving the same third-party host at the same moment, that is a real risk.</p>
+</div>
+<div class="paragraph">
+<p><code>apps/greeting-api</code> is a small Quarkus service that serves the same contract. Deploy it into
+the workshop namespace and the exercise no longer depends on anybody else&#8217;s uptime.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_the_contract"><a class="anchor" href="#_the_contract"></a>The contract</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>It answers at <code>/</code>, with the same JSON shape and the same fallback as the public API:</p>
+</div>
+<div class="listingblock console-output">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-text hljs" data-lang="text">GET /?lang=en   -&gt;  {"code":"en","hello":"Hello"}
+GET /?lang=es   -&gt;  {"code":"es","hello":"Hola"}
+GET /?lang=ro   -&gt;  {"code":"ro","hello":"Salut"}
+GET /?lang=fr   -&gt;  {"code":"fr","hello":"Salut"}
+GET /?lang=xx   -&gt;  {"code":"none","hello":"Hello"}</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Those four languages are the ones <code>import.sql</code> seeds, and the values deliberately differ
+from the seeded ones — <code>Salut</code> rather than <code>Bonjour</code> for French — so a student can still see
+that <code>MessageInitializer</code> really did overwrite the rows.</p>
+</div>
+<div class="paragraph">
+<p>Because the path and the shape are unchanged, <strong>the student&#8217;s code is unchanged</strong>. The
+<code>HelloService</code> interface, the <code>ExternalGreeting</code> DTO and the <code>UrlHealthCheck</code> are all exactly
+as <a href="health.html" class="xref page">the chapter</a> writes them. Only one property value differs.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_deploy_it"><a class="anchor" href="#_deploy_it"></a>Deploy it</h2>
+<div class="sectionbody">
+<div class="sect2">
+<h3 id="_build_on_the_cluster"><a class="anchor" href="#_build_on_the_cluster"></a>Build on the cluster</h3>
+<div class="paragraph">
+<p>This needs nothing but <code>oc</code> and a clone of this repository — no local Java, Maven, Podman or
+registry account. The source is compiled on the cluster by the UBI 9 OpenJDK 21 builder.</p>
+</div>
+<div class="paragraph">
+<p>From the repository root:</p>
+</div>
+<div class="listingblock console-input">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">oc new-build registry.access.redhat.com/ubi9/openjdk-21:latest --binary --name=greeting-api \
+  --env MAVEN_S2I_ARTIFACT_DIRS=target/quarkus-app \ <i class="conum" data-value="1"></i><b>(1)</b>
+  --env S2I_SOURCE_DEPLOYMENTS_FILTER='app lib quarkus quarkus-run.jar' \
+  --env JAVA_APP_JAR=quarkus-run.jar <i class="conum" data-value="2"></i><b>(2)</b></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>Quarkus produces a <em>fast-jar</em> layout under <code>target/quarkus-app/</code> rather than a single
+executable jar. Without these two variables the s2i assemble script finds nothing to
+deploy and the resulting image starts and immediately exits.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>The jar to launch inside that layout.</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>Then send the sources up and build:</p>
+</div>
+<div class="listingblock console-input">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">oc start-build greeting-api --from-dir=apps/greeting-api --follow</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The first build downloads the Maven dependencies and takes a few minutes.</p>
+</div>
+<div class="admonitionblock tip">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-tip" title="Tip"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Once your changes are on the default branch you can skip the upload and build straight from
+Git instead, replacing both commands above with:</p>
+</div>
+<div class="listingblock console-input">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">oc new-build registry.access.redhat.com/ubi9/openjdk-21:latest~https://github.com/redhat-scholars/openshift-apps-resource-management \
+  --context-dir=apps/greeting-api --name=greeting-api \
+  --env MAVEN_S2I_ARTIFACT_DIRS=target/quarkus-app \
+  --env S2I_SOURCE_DEPLOYMENTS_FILTER='app lib quarkus quarkus-run.jar' \
+  --env JAVA_APP_JAR=quarkus-run.jar</code></pre>
+</div>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_create_the_deployment_service_and_route"><a class="anchor" href="#_create_the_deployment_service_and_route"></a>Create the Deployment, Service and Route</h3>
+<div class="listingblock console-input">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">oc apply -f apps/kubefiles/greeting-api.yaml
+oc rollout status deployment/greeting-api</code></pre>
+</div>
+</div>
+<div class="listingblock console-output">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-text hljs" data-lang="text">deployment "greeting-api" successfully rolled out</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The manifest asks for 50m CPU and 64Mi of memory, capped at 500m and 256Mi. That is
+deliberately small: it shares the namespace with a tutorial that spends several chapters
+filling the quota up on purpose.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Use the manifest rather than <code>oc new-app greeting-api</code>. <code>oc new-app</code> publishes the Service
+on port 8080, while the manifest publishes port 80, which keeps the in-cluster URL
+(<code><a href="http://greeting-api" class="bare">http://greeting-api</a></code>) the same shape as the Route.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_alternative_build_locally_with_jib_and_push_to_a_registry"><a class="anchor" href="#_alternative_build_locally_with_jib_and_push_to_a_registry"></a>Alternative: build locally with Jib and push to a registry</h3>
+<div class="paragraph">
+<p>If you would rather use the same Jib and quay.io path the tutorial itself documents:</p>
+</div>
+<div class="listingblock console-input">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">cd apps/greeting-api
+REGISTRY_ORG=&lt;your-quay-org&gt; mvn clean package \
+  -Dquarkus.openshift.deploy=true -Dquarkus.container-image.push=true</code></pre>
+</div>
+</div>
+<div class="admonitionblock warning">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-warning" title="Warning"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>quay.io creates a new repository as <strong>private</strong>. The cluster then cannot pull it and the Pod
+sits in <code>ImagePullBackOff</code> with <code>unauthorized: access to the requested resource is not
+authorized</code>. Make <code>&lt;your-quay-org&gt;/greeting-api</code> public in the quay.io UI, or link a pull
+secret:</p>
+</div>
+<div class="listingblock console-input">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">oc create secret docker-registry quay --docker-server=quay.io \
+  --docker-username=&lt;your-quay-org&gt; --docker-password=&lt;token&gt;
+oc secrets link default quay --for=pull</code></pre>
+</div>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_verify_it"><a class="anchor" href="#_verify_it"></a>Verify it</h2>
+<div class="sectionbody">
+<div class="listingblock console-input">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">GREETING_URL=https://$(oc get route greeting-api -o jsonpath='{.spec.host}')
+echo $GREETING_URL
+for l in en es ro fr xx; do curl -s "$GREETING_URL/?lang=$l"; echo; done</code></pre>
+</div>
+</div>
+<div class="listingblock console-output">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-json hljs" data-lang="json">{"code":"en","hello":"Hello"}
+{"code":"es","hello":"Hola"}
+{"code":"ro","hello":"Salut"}
+{"code":"fr","hello":"Salut"}
+{"code":"none","hello":"Hello"}</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_hand_the_url_to_the_students"><a class="anchor" href="#_hand_the_url_to_the_students"></a>Hand the URL to the students</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Give them the value of <code>$GREETING_URL</code>. In <a href="health.html" class="xref page">Define custom health checks</a>
+they put it in <code>src/main/resources/application.properties</code>:</p>
+</div>
+<div class="listingblock console-input">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-properties hljs" data-lang="properties">com.redhat.developers.HelloService/mp-rest/url=https://greeting-api-&lt;namespace&gt;.&lt;cluster-domain&gt;</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The Route is deliberately the URL you hand out, rather than the in-cluster
+<code><a href="http://greeting-api" class="bare">http://greeting-api</a></code>. Students run the application on their own laptop in dev mode for most
+of the tutorial and only later deploy it to the cluster, and the Route is the one address
+that answers in both situations.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>If every student works in their own namespace, each of them needs their own copy of the
+service — or you deploy one copy in a shared namespace and hand out that single Route. The
+Route is public, so a service in any namespace of the same cluster is reachable from all of
+them.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_add_a_language"><a class="anchor" href="#_add_a_language"></a>Add a language</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Translations are configuration rather than code, so there is nothing to rebuild:</p>
+</div>
+<div class="listingblock console-input">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">oc set env deployment/greeting-api GREETING_TRANSLATIONS_JA=Konnichiwa
+oc rollout status deployment/greeting-api
+curl -s "$GREETING_URL/?lang=ja"</code></pre>
+</div>
+</div>
+<div class="listingblock console-output">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-json hljs" data-lang="json">{"code":"ja","hello":"Konnichiwa"}</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The built-in set is in <code>apps/greeting-api/src/main/resources/application.properties</code>.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_tear_it_down"><a class="anchor" href="#_tear_it_down"></a>Tear it down</h2>
+<div class="sectionbody">
+<div class="listingblock console-input">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">oc delete -f apps/kubefiles/greeting-api.yaml
+oc delete bc,is greeting-api --ignore-not-found</code></pre>
+</div>
+</div>
+</div>
+</div>
+<nav class="pagination">
+  <span class="prev"><a href="setup.html">Requirements</a></span>
+  <span class="next"><a href="starter.html">Development Practices</a></span>
+</nav>
+</article>
+<aside class="toc sidebar" data-title="Contents" data-levels="2">
+  <div class="toc-menu"></div>
+</aside>
+  </div>
+</main>
+</div>
+<footer class="footer">
+  <a class="rhd-logo" href="https://developers.redhat.com" target="_blank"></div>
+</footer>
+<script src="../_/js/vendor/clipboard.js"></script>
+<script src="../_/js/site.js"></script>
+<script async src="../_/js/vendor/highlight.js"></script>
+  </body>
+</html>

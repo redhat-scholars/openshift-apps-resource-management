@@ -58,6 +58,9 @@
   <li class="nav-item" data-depth="2">
     <a class="nav-link" href="setup.html">Setup</a>
   </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="greeting-api.html">Greeting API (instructor setup)</a>
+  </li>
 </ul>
   </li>
   <li class="nav-item" data-depth="1">
@@ -347,31 +350,52 @@ public interface HelloService {
 </div>
 </div>
 <div class="paragraph">
-<p>And add in <code>src/main/resources/application.properties</code>:</p>
+<p>And add in <code>src/main/resources/application.properties</code>, using the greeting service URL your
+instructor gave you:</p>
+</div>
+<div class="listingblock console-input">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-properties hljs" data-lang="properties">com.redhat.developers.HelloService/mp-rest/url=https://greeting-api-&lt;namespace&gt;.&lt;cluster-domain&gt;</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Whatever the URL, it serves the same JSON directly at <code>/</code>, which is why both <code>@Path</code>
+annotations above are <code>/</code>:</p>
+</div>
+<div class="listingblock console-output">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-json hljs" data-lang="json">{"code":"en","hello":"Hello"}</code></pre>
+</div>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>That service is <code>apps/greeting-api</code> in this repository, deployed into the cluster by whoever
+runs the workshop — see <a href="greeting-api.html" class="xref page">Greeting API (instructor setup)</a>. Working
+through the tutorial on your own? Deploy it yourself with the three commands in that chapter,
+or fall back to the public API it stands in for:</p>
 </div>
 <div class="listingblock console-input">
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-properties hljs" data-lang="properties">com.redhat.developers.HelloService/mp-rest/url=https://hellosalut.stefanbohacek.com</code></pre>
 </div>
 </div>
-<div class="admonitionblock important">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-important" title="Important"></i>
-</td>
-<td class="content">
 <div class="paragraph">
-<p>The hellosalut API used to live at <code><a href="https://fourtonfish.com/hellosalut/" class="bare">https://fourtonfish.com/hellosalut/</a></code>. That address now answers
-<code>301 Moved Permanently</code> towards <code><a href="https://stefanbohacek.com/hellosalut/" class="bare">https://stefanbohacek.com/hellosalut/</a></code>. The MicroProfile REST Client
-does not follow redirects by default, and the <code>UrlHealthCheck</code> you add below asserts a <code>200</code>, so the
-old host silently turns the readiness probe red. Use <code><a href="https://hellosalut.stefanbohacek.com" class="bare">https://hellosalut.stefanbohacek.com</a></code> — it serves
-the same JSON directly at <code>/</code>, which is why both <code>@Path</code> annotations above are <code>/</code>.</p>
+<p>Be aware of what you are taking on. <code>MessageInitializer</code> below calls this URL from a
+<code>@Startup</code> hook, so if the host is unreachable the application does not start at all — you
+get <code>Failed to start quarkus</code> and an <code>UnknownHostException</code>, not a red health check. A flaky
+network or a busy conference Wi-Fi is enough.</p>
 </div>
-<div class="listingblock console-output">
-<div class="content">
-<pre class="highlightjs highlight"><code class="language-json hljs" data-lang="json">{"code":"en","hello":"Hello"}</code></pre>
-</div>
+<div class="paragraph">
+<p>Note also that the public API used to live at <code><a href="https://fourtonfish.com/hellosalut/" class="bare">https://fourtonfish.com/hellosalut/</a></code>. That
+address now answers <code>301 Moved Permanently</code>, the MicroProfile REST Client does not follow
+redirects by default, and the <code>UrlHealthCheck</code> you add below asserts a <code>200</code> — so the old
+host silently turns the readiness probe red.</p>
 </div>
 </td>
 </tr>
@@ -492,7 +516,9 @@ the three probes in <code>target/kubernetes/openshift.yml</code> now point at <c
 If you reload the context in DevMode (by pressing <code>s</code>), you would notice that your Kubernetes/OpenShift manifests have changed and take into account your new configuration.</p>
 </div>
 <div class="paragraph">
-<p>As the database readiness is already assessed, we can customize another readiness probe to check the availability of the endpoint <code><a href="https://hellosalut.stefanbohacek.com" class="bare">https://hellosalut.stefanbohacek.com</a></code>:</p>
+<p>As the database readiness is already assessed, we can customize another readiness probe to
+check the availability of the greeting endpoint. Note that it reads the very same property
+you set above, so the check follows whichever URL you configured:</p>
 </div>
 <div class="listingblock console-input">
 <div class="content">
@@ -584,7 +610,7 @@ public class CustomHealthCheck {
       "name": "external-url-check",
       "status": "UP",
       "data": {
-        "host": "GET https://hellosalut.stefanbohacek.com/?lang=en"
+        "host": "GET https://greeting-api-&lt;namespace&gt;.&lt;cluster-domain&gt;/?lang=en"
       }
     },
     {
