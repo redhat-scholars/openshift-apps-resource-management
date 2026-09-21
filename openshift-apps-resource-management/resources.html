@@ -118,7 +118,7 @@
 <div class="sectionbody">
 <div class="paragraph">
 <p>By default, containers run with unbounded compute resources on a Kubernetes cluster.
-Developer Sandbox is managed OpenShift environment, its cluster resources are tailored per development needs.</p>
+Developer Sandbox is a managed OpenShift environment, its cluster resources are tailored per development needs.</p>
 </div>
 </div>
 </div>
@@ -138,6 +138,29 @@ To avoid that, within a namespace, a Pod or Container can consume as much CPU an
 <pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">oc get resourcequota</code></pre>
 </div>
 </div>
+<div class="listingblock console-output">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-text hljs" data-lang="text">NAME                    REQUEST                                                                  LIMIT
+compute-build           requests.cpu: 0/3, requests.memory: 0/14Gi                               limits.cpu: 0/20, limits.memory: 0/14Gi
+compute-deploy          requests.cpu: 110m/3, requests.memory: 768Mi/30Gi                        limits.cpu: 1500m/30, limits.memory: 912Mi/30Gi
+compute-spacerequests   count/spacerequests.toolchain.dev.openshift.com: 0/1
+storage                 count/persistentvolumeclaims: 3/10, requests.storage: 40Gi/80Gi          limits.ephemeral-storage: 0/15Gi</code></pre>
+</div>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<code>compute-build</code> applies to short-lived (terminating) Pods such as S2I builds, while
+<code>compute-deploy</code> applies to long-running Pods. A build and a deployment therefore draw from two
+different budgets.
+</td>
+</tr>
+</table>
+</div>
 <div class="paragraph">
 <p>At namespace/project level a LimitRange policy is employed to constrain resource allocations (to Pods or Containers).
 You can find out the LimitRange established for a namespace by running <code>oc get limitrange</code> and ask for its description via:</p>
@@ -153,15 +176,29 @@ You can find out the LimitRange established for a namespace by running <code>oc 
 <div class="listingblock console-output">
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-text hljs" data-lang="text">Name:       resource-limits
-Namespace:  anasandbox-dev
+Namespace:  &lt;your-namespace&gt;
 Type        Resource  Min  Max  Default Request  Default Limit  Max Limit/Request Ratio
 ----        --------  ---  ---  ---------------  -------------  -----------------------
-Container   cpu       -    -    10m              1              -
-Container   memory    -    -    64Mi             750Mi          -</code></pre>
+Container   memory    -    -    64Mi             1000Mi         -
+Container   cpu       -    -    10m              1              -</code></pre>
 </div>
 </div>
 <div class="paragraph">
-<p>The above LimitRange has enforced the default request/limit for compute resources in the namespace and automatically injects them to Containers at runtime.</p>
+<p>The above LimitRange has enforced the default request/limit for compute resources in the namespace and automatically injects them into Containers at runtime.</p>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+Because of this injection, a container that declares <strong>no</strong> <code>resources</code> section does not run
+unbounded here — it silently inherits <code>10m</code>/<code>64Mi</code> requests and <code>1</code>/<code>1000Mi</code> limits. Keep this in mind
+in the <a href="monitoring.html" class="xref page">Sizing resource limits</a> chapter, where we look for containers without limits.
+</td>
+</tr>
+</table>
 </div>
 </div>
 </div>
@@ -172,17 +209,46 @@ Container   memory    -    -    64Mi             750Mi          -</code></pre>
 <p>By using a tool called <a href="https://github.com/rakyll/hey">hey</a>, you can run a load test on your server and see how your system performs under different circumstances.</p>
 </div>
 <div class="paragraph">
-<p>Let&#8217;s run a hey command against the route exposed by previous deployment:</p>
+<p>Let&#8217;s run a hey command against the route exposed by the previous deployment:</p>
 </div>
 <div class="listingblock console-input">
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">export ROUTE_URL=http://$(kubectl get route greeting-app -o jsonpath='{.spec.host}')
-hey -n 10 -c 4 -v $ROUTE_URL/messages</code></pre>
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">export ROUTE_URL=https://$(kubectl get route tutorial-app -o jsonpath='{.spec.host}') <i class="conum" data-value="1"></i><b>(1)</b>
+hey -z 60s -c 20 $ROUTE_URL/messages <i class="conum" data-value="2"></i><b>(2)</b></code></pre>
 </div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>The Quarkus OpenShift extension names the Service, Deployment and Route after the <strong>application</strong>
+(the <code>artifactId</code> of your <code>pom.xml</code>), not after the container image, so the route is <code>tutorial-app</code>.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td><code>hey</code> has no <code>-v</code> flag. A short run such as <code>-n 10 -c 4</code> also finishes before Prometheus scrapes
+anything, so use a sustained load (<code>-z 60s</code>) to see a curve on the graphs.</td>
+</tr>
+</table>
+</div>
+<div class="admonitionblock tip">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-tip" title="Tip"></i>
+</td>
+<td class="content">
+<code>hey</code> needs no extra flags for the HTTPS route: the edge certificate is signed by the cluster&#8217;s
+default wildcard certificate, which your system trust store already accepts.
+</td>
+</tr>
+</table>
 </div>
 <div class="paragraph">
-<p>In the Developer Sandbox click on <code>Observe</code> and select the <code>Metric</code> tab.
-You can select CPU Usage or Memory Usage query to check the resources consumed by each of your pods:</p>
+<p>In the OpenShift console navigate to <strong>Observe &#8594; Metrics</strong>.
+Switch the <strong>Project:</strong> selector at the top of the page to your own project — the page opens on
+<strong>All Projects</strong>, which a Developer Sandbox user is not allowed to query — then open the <strong>Select query</strong>
+drop-down and pick <code>CPU Usage</code> or <code>Memory Usage</code> to check the resources consumed by each of your pods:</p>
 </div>
 <div class="imageblock text-center mt-4 center">
 <div class="content">
@@ -194,6 +260,19 @@ You can select CPU Usage or Memory Usage query to check the resources consumed b
 <img src="_images/memory_usage.png" alt="Memory Usage" width="600" height="600">
 </div>
 </div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+OpenShift 4.21 replaced the <strong>Developer</strong> / <strong>Administrator</strong> perspectives with a single
+<strong>Core platform</strong> navigation, and <strong>Select query</strong> is now a typeahead field.
+</td>
+</tr>
+</table>
+</div>
 <div class="paragraph">
 <p>Based on that you can adjust your container resources in <code>application.properties</code>:</p>
 </div>
@@ -202,21 +281,59 @@ You can select CPU Usage or Memory Usage query to check the resources consumed b
 <pre class="highlightjs highlight"><code class="language-properties hljs" data-lang="properties"># Configuration file
 # key = value
 
-quarkus.openshift.resources.limits.cpu=200m
-quarkus.openshift.resources.limits.memory=280Mi
+quarkus.openshift.resources.limits.cpu=500m
+quarkus.openshift.resources.limits.memory=400Mi
 quarkus.openshift.resources.requests.cpu=100m
-quarkus.openshift.resources.requests.memory=140Mi</code></pre>
+quarkus.openshift.resources.requests.memory=256Mi</code></pre>
 </div>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Do not size the CPU limit purely on the steady-state measurement (this application idles at about
+<code>0.044</code> cores and <code>260M</code>). The JVM needs far more CPU while it boots, and the Quarkus OpenShift
+extension also generates a <code>startupProbe</code> that allows roughly 35 seconds
+(<code>initialDelaySeconds: 5</code>, <code>periodSeconds: 10</code>, <code>failureThreshold: 3</code>) for the application to report
+<code>/health/started</code>.</p>
 </div>
 <div class="paragraph">
-<p>The resources in <code>target/kubernetes</code> folder will be reworked at compile time and contain these new definitions.</p>
+<p>With <code>limits.cpu=200m</code> the application takes ~37s to start, the probe fails, and the container is
+killed with exit code 143 and enters <code>CrashLoopBackOff</code>. With <code>limits.cpu=500m</code> it starts in ~13s.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>The resources in the <code>target/kubernetes</code> folder will be reworked at compile time and contain these new definitions.</p>
 </div>
 <div class="paragraph">
 <p>You can now deploy the changes by using the command:</p>
 </div>
 <div class="listingblock console-input">
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-properties hljs" data-lang="properties">mvn clean package -Dquarkus.kubernetes.deploy=true -Dquarkus.container-image.push=true</code></pre>
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">./mvnw clean package -Dquarkus.openshift.deploy=true -Dquarkus.container-image.push=true</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>And verify the values that ended up on the Pod:</p>
+</div>
+<div class="listingblock console-input">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">kubectl get deployment tutorial-app -o jsonpath='{.spec.template.spec.containers[0].resources}' | jq</code></pre>
+</div>
+</div>
+<div class="listingblock console-output">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-json hljs" data-lang="json">{
+  "limits": { "cpu": "500m", "memory": "400Mi" },
+  "requests": { "cpu": "100m", "memory": "256Mi" }
+}</code></pre>
 </div>
 </div>
 </div>

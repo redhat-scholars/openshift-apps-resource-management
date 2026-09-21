@@ -123,28 +123,37 @@
 </div>
 <div class="listingblock console-input">
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">mvn "io.quarkus:quarkus-maven-plugin:create" \
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">mvn "io.quarkus.platform:quarkus-maven-plugin:3.39.4:create" \ <i class="conum" data-value="1"></i><b>(1)</b>
 -DprojectGroupId="com.redhat.developers" \
--DprojectArtifactId="another-greeting-app" \
+-DprojectArtifactId="tutorial-app" \
 -DprojectVersion="1.0-SNAPSHOT" \
 -DclassName="GreetingResource" \
 -Dpath="messages"</code></pre>
 </div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>Quarkus 3 publishes the plugin under the <code>io.quarkus.platform</code> group id. Pinning the version keeps
+every student on the same platform BOM; drop <code>:3.39.4</code> to always get the latest release.</td>
+</tr>
+</table>
 </div>
 <div class="paragraph">
 <p>If you are a Windows user, simply inline the command:</p>
 </div>
 <div class="listingblock console-input">
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">mvn "io.quarkus:quarkus-maven-plugin:create" -DprojectGroupId="com.redhat.developers" -DprojectArtifactId="tutorial-app" -DprojectVersion="1.0-SNAPSHOT" -DclassName="GreetingResource" -Dpath="messages"</code></pre>
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">mvn "io.quarkus.platform:quarkus-maven-plugin:3.39.4:create" -DprojectGroupId="com.redhat.developers" -DprojectArtifactId="tutorial-app" -DprojectVersion="1.0-SNAPSHOT" -DclassName="GreetingResource" -Dpath="messages"</code></pre>
 </div>
 </div>
 <div class="paragraph">
-<p>The generated project contains an endpoint GreetingResource. You can customize the extensions that your project will use by running:</p>
+<p>The generated project contains an endpoint <code>GreetingResource</code> served at <code>/messages</code>. You can customize the extensions that your project will use by running:</p>
 </div>
 <div class="listingblock console-input">
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">mvn quarkus:add-extension -Dextensions="quarkus-rest-jsonb,quarkus-jdbc-postgresql,quarkus-hibernate-orm-panache, quarkus-smallrye-openapi,quarkus-container-image-jib,quarkus-openshift"</code></pre>
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">./mvnw quarkus:add-extension -Dextensions="quarkus-rest-jsonb,quarkus-jdbc-postgresql,quarkus-hibernate-orm-panache,quarkus-smallrye-openapi,quarkus-container-image-jib,quarkus-openshift"</code></pre>
 </div>
 </div>
 <div class="paragraph">
@@ -194,11 +203,20 @@ The benefit of using the CLI is that it will download maven, Java and the code s
 <div class="sectionbody">
 <div class="paragraph">
 <p>Because both Jib and OpenShift extensions are present in the configuration, you need to decide which one you would like to use to build your container images.
-Below is the line for specifying jib:</p>
+If you skip this step the build fails straight away:</p>
 </div>
 <div class="listingblock console-output">
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">quarkus.container-image.builder=jib</code></pre>
+<pre class="highlightjs highlight"><code class="language-text hljs" data-lang="text">[error]: Build step io.quarkus.kubernetes.deployment.OpenshiftProcessor#populateInternalRegistry threw an exception: java.lang.IllegalStateException: quarkus-container-image-jib and quarkus-container-image-openshift were detected, at most one container-image extension can be present.
+Either remove the unneeded ones, or select one by setting any of the following configuration properties: 'quarkus.container-image.builder=openshift', 'quarkus.container-image.builder=jib'</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Add the following line to <code>src/main/resources/application.properties</code> to select jib:</p>
+</div>
+<div class="listingblock console-input">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-properties hljs" data-lang="properties">quarkus.container-image.builder=jib</code></pre>
 </div>
 </div>
 </div>
@@ -259,7 +277,7 @@ Native compilation will take few minutes to complete.
 </div>
 <div id="basics-build-run-native-app" class="listingblock console-input">
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">./target/{project-name}-1.0-SNAPSHOT-runner</code></pre>
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">./target/tutorial-app-1.0-SNAPSHOT-runner</code></pre>
 </div>
 </div>
 </div>
@@ -286,8 +304,8 @@ Native compilation will take few minutes to complete.
 </div>
 <div id="basics-build-run-native-docker-app" class="listingblock console-input">
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">docker build -f src/main/docker/Dockerfile.native -t example/{project-name}:1.0-SNAPSHOT .
-docker run -it --rm -p 8080:8080 example/{project-name}:1.0-SNAPSHOT</code></pre>
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">docker build -f src/main/docker/Dockerfile.native -t example/tutorial-app:1.0-SNAPSHOT .
+docker run -it --rm -p 8080:8080 example/tutorial-app:1.0-SNAPSHOT</code></pre>
 </div>
 </div>
 </div>
@@ -302,16 +320,36 @@ docker run -it --rm -p 8080:8080 example/{project-name}:1.0-SNAPSHOT</code></pre
  --/ __ \/ / / / _ | / _ \/ //_/ / / / __/
  -/ /_/ / /_/ / __ |/ , _/ ,&lt; / /_/ /\ \
 --\___\_\____/_/ |_/_/|_/_/|_|\____/___/
-2020-05-10 22:37:10,161 INFO  [io.quarkus] (main) tutorial-app 1.0-SNAPSHOT (powered by Quarkus 1.10.2.Final) started in 0.016s. Listening on: http://0.0.0.0:8080
-2020-05-10 22:37:10,162 INFO  [io.quarkus] (main) Profile prod activated.
-2020-05-10 22:37:10,162 INFO  [io.quarkus] (main) Installed features: [cdi, resteasy]</code></pre>
+2026-09-21 14:10:35,627 INFO  [io.quarkus] (main) tutorial-app 1.0-SNAPSHOT on JVM (powered by Quarkus 3.39.4) started in 0.884s. Listening on: http://0.0.0.0:8080
+2026-09-21 14:10:35,631 INFO  [io.quarkus] (main) Profile prod activated.
+2026-09-21 14:10:35,631 INFO  [io.quarkus] (main) Installed features: [agroal, cdi, hibernate-orm, hibernate-orm-panache, jdbc-postgresql, kubernetes, narayana-jta, rest, rest-jsonb, smallrye-context-propagation, smallrye-openapi, vertx]</code></pre>
 </div>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Quarkus 3 prints <code>on JVM</code> next to the version, and the <code>Installed features</code> list grows as you add
+extensions in the later chapters.</p>
 </div>
 <div class="paragraph">
-<p>Notice how <strong>fast</strong> Quarkus was ready to serve your requests. In this particular example Quarkus only required <strong>0.016s</strong> to start.</p>
+<p>There is no entity in the project yet, so Hibernate ORM stays inactive and the application starts
+without a database. From the <a href="configuration.html" class="xref page">Configuration</a> chapter onwards, running the
+packaged application in <code>prod</code> mode needs a reachable PostgreSQL instance.</p>
+</div>
+</td>
+</tr>
+</table>
 </div>
 <div class="paragraph">
-<p>You can open your browser with the url <code><a href="http://localhost:8080/messages" class="bare" target="_blank" rel="noopener">http://localhost:8080/messages</a></code> and you should see a response like <code>Hello RESTEasy</code>.</p>
+<p>Notice how <strong>fast</strong> Quarkus was ready to serve your requests. In this particular example Quarkus only required <strong>0.884s</strong> to start on the JVM.</p>
+</div>
+<div class="paragraph">
+<p>You can open your browser with the url <code><a href="http://localhost:8080/messages" class="bare" target="_blank" rel="noopener">http://localhost:8080/messages</a></code> and you should see a response like <code>Hello from Quarkus REST</code>.</p>
 </div>
 <div class="paragraph">
 <p>Or else if you&#8217;re a CLI person, you can run a <code>curl</code> command like:</p>
@@ -323,7 +361,7 @@ docker run -it --rm -p 8080:8080 example/{project-name}:1.0-SNAPSHOT</code></pre
 </div>
 <div class="listingblock console-output">
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">Hello RESTEasy</code></pre>
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">Hello from Quarkus REST</code></pre>
 </div>
 </div>
 </div>
@@ -332,7 +370,7 @@ docker run -it --rm -p 8080:8080 example/{project-name}:1.0-SNAPSHOT</code></pre
 <h2 id="_dev_ui"><a class="anchor" href="#_dev_ui"></a>Dev UI</h2>
 <div class="sectionbody">
 <div class="paragraph">
-<p>Quarkus now ships with a new experimental Dev UI, which is available in dev mode at <a href="http://localhost:8080/q/dev">/q/dev</a> by default.
+<p>Quarkus ships with a Dev UI, which is available in dev mode at <a href="http://localhost:8080/q/dev-ui">/q/dev-ui</a> by default (the old <code>/q/dev</code> address still works and redirects there).
 It allows you to quickly visualize all the extensions currently loaded, see their status and go directly to their documentation.</p>
 </div>
 </div>
@@ -345,11 +383,11 @@ It allows you to quickly visualize all the extensions currently loaded, see thei
 </div>
 <div class="listingblock console-output">
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">^C2020-05-10 23:11:03,419 INFO  [io.quarkus] (main) tutorial-app stopped in 0.007s</code></pre>
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">^C2026-09-21 14:08:56,252 INFO  [io.quarkus] (Shutdown thread) tutorial-app stopped in 0.029s</code></pre>
 </div>
 </div>
 <div class="paragraph">
-<p>Quarkus was able to stop in just <strong>0.007s</strong>. Fast to start, fast to stop. Fast always!</p>
+<p>Quarkus was able to stop in just <strong>0.029s</strong>. Fast to start, fast to stop. Fast always!</p>
 </div>
 </div>
 </div>
@@ -372,6 +410,28 @@ It allows you to quickly visualize all the extensions currently loaded, see thei
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">./mvnw clean test</code></pre>
 </div>
+</div>
+<div class="listingblock console-output">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-text hljs" data-lang="text">[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0</code></pre>
+</div>
+</div>
+<div class="admonitionblock tip">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-tip" title="Tip"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Because <code>quarkus-jdbc-postgresql</code> is on the classpath and no test datasource is configured yet, Quarkus
+<strong>Dev Services</strong> starts a throwaway PostgreSQL container for the test run. You therefore need a working
+container runtime (Podman or Docker). The <a href="configuration.html" class="xref page">Configuration</a> chapter replaces this
+with an in-memory H2 datasource for the <code>test</code> profile.</p>
+</div>
+</td>
+</tr>
+</table>
 </div>
 </div>
 </div>
@@ -422,24 +482,24 @@ Let&#8217;s start again in <em>Live Coding</em> mode by invoking <code>mvn</code
 </div>
 <div class="listingblock console-input">
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">mvn quarkus:dev</code></pre>
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">./mvnw quarkus:dev</code></pre>
 </div>
 </div>
 <div class="paragraph">
 <p>Quarkus will start in development mode as normal, but down the bottom of the screen you should see the following:</p>
 </div>
-<div class="listingblock console-input">
+<div class="listingblock console-output">
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">Tests paused
-Press [r] to resume testing, [o] Toggle test output, [h] for more options&gt;</code></pre>
+<pre class="highlightjs highlight"><code class="language-text hljs" data-lang="text">Tests paused
+Press [e] to edit command line args (currently ''), [r] to resume testing, [o] Toggle test output, [h] for more options&gt;</code></pre>
 </div>
 </div>
 <div class="paragraph">
 <p>Press <code>r</code> and the tests will start running. You should see the status change down the bottom of the screen as they are running, and it should finish similar to this:</p>
 </div>
-<div class="listingblock console-input">
+<div class="listingblock console-output">
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">All 1 test is passing (0 skipped), 1 test was run in 11705ms. Tests completed at 16:02:32.</code></pre>
+<pre class="highlightjs highlight"><code class="language-text hljs" data-lang="text">All 1 test is passing (0 skipped), 1 test was run in 12100ms. Tests completed at 14:12:30.</code></pre>
 </div>
 </div>
 <div class="admonitionblock tip">

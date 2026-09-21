@@ -144,13 +144,14 @@
 # key = value
 #quarkus.container-image.push=true <i class="conum" data-value="1"></i><b>(1)</b>
 
-quarkus.container-image.registry=quay.io<i class="conum" data-value="2"></i><b>(2)</b>
-quarkus.container-image.group=myrepo<i class="conum" data-value="3"></i><b>(3)</b>
-quarkus.container-image.name=greeting-app<i class="conum" data-value="4"></i><b>(4)</b>
-quarkus.container-image.tag=1.0-SNAPSHOT<i class="conum" data-value="5"></i><b>(5)</b>
+quarkus.container-image.registry=quay.io <i class="conum" data-value="2"></i><b>(2)</b>
+quarkus.container-image.group=myrepo <i class="conum" data-value="3"></i><b>(3)</b>
+quarkus.container-image.name=greeting-app <i class="conum" data-value="4"></i><b>(4)</b>
+quarkus.container-image.tag=1.0-SNAPSHOT <i class="conum" data-value="5"></i><b>(5)</b>
 
-#quarkus.kubernetes.deploy=true
-quarkus.openshift.route.expose=true<i class="conum" data-value="6"></i><b>(6)</b></code></pre>
+quarkus.openshift.route.expose=true <i class="conum" data-value="6"></i><b>(6)</b>
+quarkus.openshift.route.tls.termination=edge <i class="conum" data-value="7"></i><b>(7)</b>
+quarkus.openshift.route.tls.insecure-edge-termination-policy=Redirect <i class="conum" data-value="8"></i><b>(8)</b></code></pre>
 </div>
 </div>
 <div class="colist arabic">
@@ -165,7 +166,7 @@ quarkus.openshift.route.expose=true<i class="conum" data-value="6"></i><b>(6)</b
 </tr>
 <tr>
 <td><i class="conum" data-value="3"></i><b>3</b></td>
-<td>Group name of the conatiner image.</td>
+<td>Group name of the container image.</td>
 </tr>
 <tr>
 <td><i class="conum" data-value="4"></i><b>4</b></td>
@@ -178,6 +179,49 @@ quarkus.openshift.route.expose=true<i class="conum" data-value="6"></i><b>(6)</b
 <tr>
 <td><i class="conum" data-value="6"></i><b>6</b></td>
 <td>Ask for OpenShift route configuration as well when the application is deployed.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="7"></i><b>7</b></td>
+<td>Terminate TLS at the OpenShift router, so the route is served over HTTPS.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="8"></i><b>8</b></td>
+<td>Send plain HTTP requests to the HTTPS address instead of serving them.</td>
+</tr>
+</table>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>With <code>edge</code> termination the router terminates TLS for you using the cluster&#8217;s default wildcard
+certificate. Traffic between the router and your pod stays plain HTTP on port 8080, so the
+application needs no keystore, no certificate and no extra Quarkus HTTPS configuration.
+The <code>Redirect</code> insecure-edge policy makes the router answer any <code>http://</code> request with a redirect
+to the <code>https://</code> address rather than serving it in clear text.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p><code>quarkus.container-image.name</code> only renames the <strong>image</strong>. Everything else the extension generates —
+<code>Service</code>, <code>Deployment</code>, <code>Route</code>, <code>ServiceAccount</code> — is named after the <strong>application</strong>, that is the
+<code>artifactId</code> of your <code>pom.xml</code>. With the settings above you therefore push
+<code>quay.io/myrepo/greeting-app:1.0-SNAPSHOT</code> but address the workload as <code>tutorial-app</code>.</p>
+</div>
+</td>
 </tr>
 </table>
 </div>
@@ -204,7 +248,7 @@ If you don&#8217;t, your push <strong>will</strong> fail.
 </div>
 <div class="listingblock console-input">
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">docker login quay.io</code></pre>
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">podman login quay.io # or: docker login quay.io</code></pre>
 </div>
 </div>
 <div class="paragraph">
@@ -219,14 +263,14 @@ If you don&#8217;t, your push <strong>will</strong> fail.
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-text hljs" data-lang="text">[INFO] [io.quarkus.container.image.jib.deployment.JibProcessor] Using base image with digest: sha256:b459cc59d6c7ddc9fd52f981fc4c187f44a401f2433a1b4110810d2dd9e98a07
 [INFO] [io.quarkus.container.image.jib.deployment.JibProcessor] Container entrypoint set to [java, -Dquarkus.http.host=0.0.0.0, -Djava.util.logging.manager=org.jboss.logmanager.LogManager, -cp, /app/resources:/app/classes:/app/libs/*, io.quarkus.runner.GeneratedMain]
-[INFO] [io.quarkus.container.image.jib.deployment.JibProcessor] Pushed container image quay.io/myrepo/tutorial-app:1.0-SNAPSHOT (sha256:6651a2f85f8f53ef951b3398d00f1c7da73bd0e8b21f87584d5a1c0e99aae12c)
+[INFO] [io.quarkus.container.image.jib.deployment.JibProcessor] Pushed container image quay.io/myrepo/greeting-app:1.0-SNAPSHOT (sha256:6651a2f85f8f53ef951b3398d00f1c7da73bd0e8b21f87584d5a1c0e99aae12c)
 
 [INFO] [io.quarkus.deployment.QuarkusAugmentor] Quarkus augmentation completed in 14804ms
 [INFO] ------------------------------------------------------------------------
 [INFO] BUILD SUCCESS
 [INFO] ------------------------------------------------------------------------
 [INFO] Total time:  20.431 s
-[INFO] Finished at: 2020-05-11T00:05:25-04:00
+[INFO] Finished at: 2026-09-21T12:02:09+02:00
 [INFO] ------------------------------------------------------------------------</code></pre>
 </div>
 </div>
@@ -245,19 +289,62 @@ If you don&#8217;t, your push <strong>will</strong> fail.
 </div>
 <div class="listingblock console-output">
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-text hljs" data-lang="text">service/greeting-app configured
-imagestream.image.openshift.io/greeting-app configured
-deploymentconfig.apps.openshift.io/greeting-app configured
-route.route.openshift.io/greeting-app configured</code></pre>
+<pre class="highlightjs highlight"><code class="language-text hljs" data-lang="text">serviceaccount/tutorial-app created
+rolebinding.rbac.authorization.k8s.io/tutorial-app-view created
+service/tutorial-app created
+deployment.apps/tutorial-app created
+route.route.openshift.io/tutorial-app created</code></pre>
+</div>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Earlier revisions of this tutorial produced a <code>DeploymentConfig</code> and an <code>ImageStream</code> here.
+<code>DeploymentConfig</code> is deprecated since OpenShift 4.14, and because the image is pushed to an external
+registry by Jib there is no <code>ImageStream</code> either: the extension now emits a plain <code>apps/v1</code>
+<code>Deployment</code> that pulls <code>quay.io/myrepo/greeting-app:1.0-SNAPSHOT</code> directly.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>You might need to wait for some seconds until your application is up and running:</p>
+</div>
+<div class="listingblock console-input">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">oc rollout status deployment/tutorial-app</code></pre>
 </div>
 </div>
 <div class="paragraph">
-<p>You might need to wait for some seconds until your application is up and running.
-Access the service via the OpenShift route created automatically:</p>
+<p>Access the service via the OpenShift route created automatically:</p>
+</div>
+<div class="listingblock console-input">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">oc get route tutorial-app</code></pre>
+</div>
 </div>
 <div class="listingblock console-output">
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">oc get route greeting-app</code></pre>
+<pre class="highlightjs highlight"><code class="language-text hljs" data-lang="text">NAME           HOST/PORT                                                    PATH   SERVICES       PORT   TERMINATION     WILDCARD
+tutorial-app   tutorial-app-nvinto-dev.apps.rm3.7wse.p1.openshiftapps.com          tutorial-app   http   edge/Redirect   None</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The <code>TERMINATION</code> column shows <code>edge/Redirect</code>: TLS ends at the router and plain HTTP is redirected.</p>
+</div>
+<div class="paragraph">
+<p>And check that the application answers:</p>
+</div>
+<div class="listingblock console-input">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">export ROUTE_URL=https://$(oc get route tutorial-app -o jsonpath='{.spec.host}')
+curl -s $ROUTE_URL/messages | jq</code></pre>
 </div>
 </div>
 <div class="admonitionblock tip">
@@ -267,7 +354,24 @@ Access the service via the OpenShift route created automatically:</p>
 <i class="fa icon-tip" title="Tip"></i>
 </td>
 <td class="content">
-You can build, push and deploy the container image by running: <code>./mvnw clean package -Dquarkus.kubernetes.deploy=true</code>
+The route is HTTPS now, so use <code>https://</code> when you build the URL yourself. If you call the
+<code>http://</code> address anyway the router answers <code>302 Found</code> with a <code>Location</code> header pointing at the
+<code>https://</code> one — add <code>curl -L</code> to follow it.
+</td>
+</tr>
+</table>
+</div>
+<div class="admonitionblock tip">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-tip" title="Tip"></i>
+</td>
+<td class="content">
+You can build, push and deploy the container image in one go by running:
+<code>./mvnw clean package -Dquarkus.openshift.deploy=true -Dquarkus.container-image.push=true</code>.
+The property is <code>quarkus.openshift.deploy</code>, not <code>quarkus.kubernetes.deploy</code> — the latter is what the
+Kubernetes extension uses and it is ignored by the OpenShift one.
 </td>
 </tr>
 </table>

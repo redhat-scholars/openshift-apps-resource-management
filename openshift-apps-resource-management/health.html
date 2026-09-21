@@ -119,9 +119,9 @@
 <div class="paragraph">
 <p>While you coded the database configuration in the previous exercise, Quarkus has generated Kubernetes and OpenShift resources in <code>target/kubernetes</code>:</p>
 </div>
-<div class="listingblock console-input">
+<div class="listingblock console-output">
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-config hljs" data-lang="config">target/kubernetes
+<pre class="highlightjs highlight"><code class="language-text hljs" data-lang="text">target/kubernetes
 |-- kubernetes.json
 |-- kubernetes.yml
 |-- openshift.json
@@ -142,23 +142,23 @@ But before doing that, let&#8217;s implement custom health checks.</p>
 </div>
 <div class="listingblock console-input">
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-config hljs" data-lang="config">./mvnw quarkus:add-extension -Dextensions="io.quarkus:quarkus-smallrye-health"</code></pre>
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">./mvnw quarkus:add-extension -Dextensions="io.quarkus:quarkus-smallrye-health"</code></pre>
 </div>
 </div>
 <div class="paragraph">
 <p>If you did not stop DevMode and inspect again <code>target/kubernetes/kubernetes.yml</code> or <code>target/kubernetes/openshift.yml</code>
-will notice that it had changed. Your Deployment/DeploymentConfig resource will contain a few lines like to:</p>
+will notice that it had changed. Your <code>Deployment</code> resource will contain a few lines like to:</p>
 </div>
-<div class="listingblock console-input">
+<div class="listingblock console-output">
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-config hljs" data-lang="config">          livenessProbe:
+<pre class="highlightjs highlight"><code class="language-yaml hljs" data-lang="yaml">          livenessProbe:
             failureThreshold: 3
             httpGet:
               path: /q/health/live
               port: 8080
               scheme: HTTP
-            initialDelaySeconds: 0
-            periodSeconds: 30
+            initialDelaySeconds: 5
+            periodSeconds: 10
             successThreshold: 1
             timeoutSeconds: 10
           name: tutorial-app
@@ -172,11 +172,33 @@ will notice that it had changed. Your Deployment/DeploymentConfig resource will 
               path: /q/health/ready
               port: 8080
               scheme: HTTP
-            initialDelaySeconds: 0
-            periodSeconds: 30
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 10
+          startupProbe: <i class="conum" data-value="1"></i><b>(1)</b>
+            failureThreshold: 3
+            httpGet:
+              path: /q/health/started
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 5
+            periodSeconds: 10
             successThreshold: 1
             timeoutSeconds: 10</code></pre>
 </div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>Quarkus 3 also generates a <code>startupProbe</code>. It is what protects a slow-starting JVM from being
+killed by the liveness probe — but it gives the application only
+<code>initialDelaySeconds + failureThreshold × periodSeconds</code> ≈ 35 seconds to answer <code>/q/health/started</code>.
+Remember this when you set a CPU limit in <a href="resources.html" class="xref page">Adjust resource quotas</a>: too small a
+limit makes the JVM miss that budget and the container ends up in <code>CrashLoopBackOff</code>.</td>
+</tr>
+</table>
 </div>
 <div class="admonitionblock tip">
 <table>
@@ -262,13 +284,21 @@ This type of scenario requires customizing health checks for the readiness probe
 <div class="sect2">
 <h3 id="_add_the_rest_client_extension"><a class="anchor" href="#_add_the_rest_client_extension"></a>Add the REST Client extension</h3>
 <div class="paragraph">
-<p>In the terminal window please execute the following command
-:</p>
+<p>In the terminal window please execute the following command:</p>
 </div>
 <div class="listingblock console-input">
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-config hljs" data-lang="config">./mvnw quarkus:add-extension -Dextensions="io.quarkus:quarkus-rest-client"</code></pre>
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">./mvnw quarkus:add-extension -Dextensions="io.quarkus:quarkus-rest-client,io.quarkus:quarkus-rest-client-jsonb" <i class="conum" data-value="1"></i><b>(1)</b></code></pre>
 </div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td><code>quarkus-rest-client</code> on its own has no JSON provider, so the <code>ExternalGreeting</code> response cannot be
+deserialized. Add <code>quarkus-rest-client-jsonb</code> to match the <code>quarkus-rest-jsonb</code> you are already using.</td>
+</tr>
+</table>
 </div>
 </div>
 <div class="sect2">
@@ -306,7 +336,7 @@ import jakarta.ws.rs.core.MediaType;
 
 
 @RegisterRestClient
-@Path("/hellosalut")
+@Path("/")
 public interface HelloService {
 
     @GET
@@ -321,8 +351,31 @@ public interface HelloService {
 </div>
 <div class="listingblock console-input">
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-config hljs" data-lang="config">com.redhat.developers.HelloService/mp-rest/url=https://fourtonfish.com</code></pre>
+<pre class="highlightjs highlight"><code class="language-properties hljs" data-lang="properties">com.redhat.developers.HelloService/mp-rest/url=https://hellosalut.stefanbohacek.com</code></pre>
 </div>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>The hellosalut API used to live at <code><a href="https://fourtonfish.com/hellosalut/" class="bare">https://fourtonfish.com/hellosalut/</a></code>. That address now answers
+<code>301 Moved Permanently</code> towards <code><a href="https://stefanbohacek.com/hellosalut/" class="bare">https://stefanbohacek.com/hellosalut/</a></code>. The MicroProfile REST Client
+does not follow redirects by default, and the <code>UrlHealthCheck</code> you add below asserts a <code>200</code>, so the
+old host silently turns the readiness probe red. Use <code><a href="https://hellosalut.stefanbohacek.com" class="bare">https://hellosalut.stefanbohacek.com</a></code> — it serves
+the same JSON directly at <code>/</code>, which is why both <code>@Path</code> annotations above are <code>/</code>.</p>
+</div>
+<div class="listingblock console-output">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-json hljs" data-lang="json">{"code":"en","hello":"Hello"}</code></pre>
+</div>
+</div>
+</td>
+</tr>
+</table>
 </div>
 </div>
 <div class="sect2">
@@ -417,10 +470,6 @@ This code will be executed after initializing the database from <code>import.sql
 <td><i class="conum" data-value="4"></i><b>4</b></td>
 <td>Inject the service that updates database content and has <code>@Transactional</code> annotation set on the invoked method.</td>
 </tr>
-<tr>
-<td><i class="conum" data-value="5"></i><b>5</b></td>
-<td>Invoke record update.</td>
-</tr>
 </table>
 </div>
 </div>
@@ -434,15 +483,16 @@ This code will be executed after initializing the database from <code>import.sql
 </div>
 <div class="listingblock console-input">
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-config hljs" data-lang="config">quarkus.smallrye-health.root-path=/health</code></pre>
+<pre class="highlightjs highlight"><code class="language-properties hljs" data-lang="properties">quarkus.smallrye-health.root-path=/health</code></pre>
 </div>
 </div>
 <div class="paragraph">
-<p>The Quarkus Kubernetes/OpenShift extension will take into account your custom probe definitions when generating their YAML.
+<p>The Quarkus Kubernetes/OpenShift extension will take into account your custom probe definitions when generating their YAML:
+the three probes in <code>target/kubernetes/openshift.yml</code> now point at <code>/health/live</code>, <code>/health/ready</code> and <code>/health/started</code>.
 If you reload the context in DevMode (by pressing <code>s</code>), you would notice that your Kubernetes/OpenShift manifests have changed and take into account your new configuration.</p>
 </div>
 <div class="paragraph">
-<p>As the database readiness is already assessed, we can customize another readiness probe to check the availability of the endpoint <code><a href="https://fourtonfish.com" class="bare">https://fourtonfish.com</a></code>:</p>
+<p>As the database readiness is already assessed, we can customize another readiness probe to check the availability of the endpoint <code><a href="https://hellosalut.stefanbohacek.com" class="bare">https://hellosalut.stefanbohacek.com</a></code>:</p>
 </div>
 <div class="listingblock console-input">
 <div class="content">
@@ -465,7 +515,7 @@ public class CustomHealthCheck {
 
     @Readiness <i class="conum" data-value="1"></i><b>(1)</b>
     HealthCheck checkURL() {
-        return new UrlHealthCheck(externalURL+"/hellosalut/?lang=en") <i class="conum" data-value="2"></i><b>(2)</b>
+        return new UrlHealthCheck(externalURL+"/?lang=en") <i class="conum" data-value="2"></i><b>(2)</b>
                 .name("external-url-check").requestMethod(HttpMethod.GET).statusCode(200);
     }
 
@@ -507,6 +557,56 @@ public class CustomHealthCheck {
 </li>
 </ul>
 </div>
+</td>
+</tr>
+</table>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_verify_the_readiness_probe"><a class="anchor" href="#_verify_the_readiness_probe"></a>Verify the readiness probe</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Once the application runs, the readiness endpoint reports both the datasource check contributed by
+<code>quarkus-agroal</code> and your own <code>external-url-check</code>:</p>
+</div>
+<div class="listingblock console-input">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">curl -s localhost:8080/health/ready | jq</code></pre>
+</div>
+</div>
+<div class="listingblock console-output">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-json hljs" data-lang="json">{
+  "status": "UP",
+  "checks": [
+    {
+      "name": "external-url-check",
+      "status": "UP",
+      "data": {
+        "host": "GET https://hellosalut.stefanbohacek.com/?lang=en"
+      }
+    },
+    {
+      "name": "Database connections health check",
+      "status": "UP",
+      "data": {
+        "&lt;default&gt;": "UP"
+      }
+    }
+  ]
+}</code></pre>
+</div>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<code>health-ui</code> is a dev-mode only feature. On the deployed application only <code>/health</code>,
+<code>/health/live</code>, <code>/health/ready</code> and <code>/health/started</code> answer.
 </td>
 </tr>
 </table>

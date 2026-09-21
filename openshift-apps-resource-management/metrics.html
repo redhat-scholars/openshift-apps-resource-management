@@ -118,7 +118,7 @@
 <div class="sectionbody">
 <div class="paragraph">
 <p>Firstly, let&#8217;s add the micrometer extension to our setup.
-Please open a new terminal window, and make sure you’re at the root of your tutorial-app project, then run:</p>
+Please open a new terminal window, and make sure you&#8217;re at the root of your tutorial-app project, then run:</p>
 </div>
 <div class="listingblock console-input">
 <div class="content">
@@ -131,7 +131,7 @@ Please open a new terminal window, and make sure you’re at the root of your tu
 <h2 id="_configuration_of_common_tags"><a class="anchor" href="#_configuration_of_common_tags"></a>Configuration of common tags</h2>
 <div class="sectionbody">
 <div class="paragraph">
-<p>When deploying accross multiple projects/namespaces is always good to have an unified view over some application metrics.
+<p>When deploying across multiple projects/namespaces it is always good to have a unified view over some application metrics.
 Let&#8217;s define several common tags for the application, varying in value at deployment time:</p>
 </div>
 <div class="listingblock console-input">
@@ -152,24 +152,29 @@ interface GlobalTagsConfig {
 </div>
 </div>
 <div class="paragraph">
-<p><code>@ConfigMapping(prefix = "global")</code> annotation maps configurations from <code>application.properties</code> prefixed by <code>global</code>:</p>
+<p>The <code>@ConfigMapping(prefix = "global")</code> annotation maps configurations from <code>application.properties</code> prefixed by <code>global</code>:</p>
 </div>
 <div class="listingblock console-input">
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-properties hljs" data-lang="properties">global.region=${REGION:CEE} <i class="conum" data-value="1"></i><b>(1)</b>
-global.country=${COUNTRY:'Romania'}</code></pre>
+global.country=${COUNTRY:Romania} <i class="conum" data-value="2"></i><b>(2)</b></code></pre>
 </div>
 </div>
 <div class="colist arabic">
 <table>
 <tr>
 <td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Environment configuration will be named <code>REGION</code> and having the default value <code>CEE</code>.</td>
+<td>Environment configuration will be named <code>REGION</code> and have the default value <code>CEE</code>.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>Do <strong>not</strong> quote the default value. <code>${COUNTRY:'Romania'}</code> makes the single quotes part of the value
+and every metric ends up tagged <code>country="'Romania'"</code>.</td>
 </tr>
 </table>
 </div>
 <div class="paragraph">
-<p>Further, we will propagate these configurations by via <code>MeterFilter</code> customization:</p>
+<p>Further, we will propagate these configurations via <code>MeterFilter</code> customization:</p>
 </div>
 <div class="listingblock console-input">
 <div class="content">
@@ -177,11 +182,11 @@ global.country=${COUNTRY:'Romania'}</code></pre>
 
 import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.config.MeterFilter;
-import io.quarkus.runtime.configuration.ProfileManager;
+import io.quarkus.runtime.LaunchMode; <i class="conum" data-value="1"></i><b>(1)</b>
 
-import javax.enterprise.inject.Produces;
-import javax.inject.Inject;
-import javax.inject.Singleton;
+import jakarta.enterprise.inject.Produces; <i class="conum" data-value="2"></i><b>(2)</b>
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
 import java.util.Arrays;
 
 @Singleton
@@ -196,12 +201,28 @@ public class CustomConfiguration {
         return MeterFilter.commonTags(Arrays.asList(
            Tag.of(GlobalTagsConfig.REGION, tagsConfig.region()),
            Tag.of(GlobalTagsConfig.COUNTRY, tagsConfig.country()),
-           Tag.of(GlobalTagsConfig.PROFILE, ProfileManager.getActiveProfile())
+           Tag.of(GlobalTagsConfig.PROFILE, LaunchMode.current().getDefaultProfile()) <i class="conum" data-value="3"></i><b>(3)</b>
         ));
     }
 
 }</code></pre>
 </div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td><code>io.quarkus.runtime.configuration.ProfileManager</code> was removed in Quarkus 3.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>Quarkus 3 runs on Jakarta EE 10: every <code>javax.<strong></code> import becomes <code>jakarta.</strong></code>.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="3"></i><b>3</b></td>
+<td><code>LaunchMode.current().getDefaultProfile()</code> is the replacement for <code>ProfileManager.getActiveProfile()</code>.</td>
+</tr>
+</table>
 </div>
 </div>
 </div>
@@ -209,7 +230,7 @@ public class CustomConfiguration {
 <h2 id="_metrics_definition_at_endpoint_level"><a class="anchor" href="#_metrics_definition_at_endpoint_level"></a>Metrics definition at endpoint level</h2>
 <div class="sectionbody">
 <div class="paragraph">
-<p>When looking to improve the performance of certain application features, is useful to have metrics defined at endpoint level as well.
+<p>When looking to improve the performance of certain application features, it is useful to have metrics defined at endpoint level as well.
 Let&#8217;s modify <code>GreetingResource</code> with the following:</p>
 </div>
 <div class="listingblock console-input">
@@ -219,9 +240,9 @@ Let&#8217;s modify <code>GreetingResource</code> with the following:</p>
 import io.micrometer.core.annotation.Counted;
 import io.micrometer.core.annotation.Timed;
 
-import javax.transaction.Transactional;
-import javax.ws.rs.*;
-import javax.ws.rs.core.MediaType;
+import jakarta.transaction.Transactional;
+import jakarta.ws.rs.*;
+import jakarta.ws.rs.core.MediaType;
 import java.util.List;
 
 @Path("messages")
@@ -254,11 +275,11 @@ public class GreetingResource {
 <table>
 <tr>
 <td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Measure expected long running requests with <code>@Timed</code> annotation.</td>
+<td>Measure expected long running requests with the <code>@Timed</code> annotation.</td>
 </tr>
 <tr>
 <td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>Count the creation of resources with <code>@Counted</code> annotation.</td>
+<td>Count the creation of resources with the <code>@Counted</code> annotation.</td>
 </tr>
 </table>
 </div>
@@ -272,11 +293,11 @@ public class GreetingResource {
 </div>
 <div class="listingblock console-input">
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">mvn quarkus:dev</code></pre>
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">./mvnw quarkus:dev</code></pre>
 </div>
 </div>
 <div class="paragraph">
-<p>and curl a couple of times the <code>/messages</code> endpoint:</p>
+<p>and curl the <code>/messages</code> endpoint a couple of times:</p>
 </div>
 <div class="listingblock console-input">
 <div class="content">
@@ -286,20 +307,32 @@ public class GreetingResource {
 <div class="paragraph">
 <p>You can see your custom metrics recorded at <a href="http://localhost:8080/q/metrics" class="bare">http://localhost:8080/q/metrics</a> :</p>
 </div>
-<div class="listingblock console-input">
+<div class="listingblock console-output">
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-properties hljs" data-lang="properties">jvm_memory_max_bytes{area="heap",country="'Romania'",id="Survivor Space",profile="prod",region="CEE",} 4390912.0
-jvm_memory_max_bytes{area="heap",country="'Romania'",id="Eden Space",profile="prod",region="CEE",} 3.5258368E7
-jvm_memory_max_bytes{area="heap",country="'Romania'",id="Tenured Gen",profile="prod",region="CEE",} 8.8080384E7
-jvm_memory_max_bytes{area="nonheap",country="'Romania'",id="CodeHeap 'profiled nmethods'",profile="prod",region="CEE",} 1.22912768E8
-jvm_memory_max_bytes{area="nonheap",country="'Romania'",id="Compressed Class Space",profile="prod",region="CEE",} 1.073741824E9
-jvm_memory_max_bytes{area="nonheap",country="'Romania'",id="Metaspace",profile="prod",region="CEE",} -1.0
-jvm_memory_max_bytes{area="nonheap",country="'Romania'",id="CodeHeap 'non-nmethods'",profile="prod",region="CEE",} 5828608.0
-jvm_memory_max_bytes{area="nonheap",country="'Romania'",id="CodeHeap 'non-profiled nmethods'",profile="prod",region="CEE",} 1.22916864E8
+<pre class="highlightjs highlight"><code class="language-text hljs" data-lang="text">jvm_memory_max_bytes{area="heap",country="Romania",id="G1 Eden Space",profile="dev",region="CEE"} -1.0
+jvm_memory_max_bytes{area="heap",country="Romania",id="G1 Survivor Space",profile="dev",region="CEE"} -1.0
+jvm_memory_max_bytes{area="heap",country="Romania",id="G1 Old Gen",profile="dev",region="CEE"} 8.334082048E9
+jvm_memory_max_bytes{area="nonheap",country="Romania",id="CodeCache",profile="dev",region="CEE"} 5.0331648E7
+jvm_memory_max_bytes{area="nonheap",country="Romania",id="Compressed Class Space",profile="dev",region="CEE"} 1.073741824E9
+jvm_memory_max_bytes{area="nonheap",country="Romania",id="Metaspace",profile="dev",region="CEE"} -1.0
 # HELP http_get_requests_total
 # TYPE http_get_requests_total counter
-http_get_requests_total{class="com.redhat.developers.GreetingResource",country="'Romania'",exception="none",method="findAll",profile="prod",region="CEE",result="success",uri="api.greet",} 3.0</code></pre>
+http_get_requests_total{class="com.redhat.developers.GreetingResource",country="Romania",exception="none",method="findAll",profile="dev",region="CEE",result="success",uri="api.greet"} 3.0</code></pre>
 </div>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+The <code>profile</code> tag reads <code>dev</code> because you started the application with <code>quarkus:dev</code>. On JDK 21
+the default garbage collector is G1, so the memory pool ids are <code>G1 Eden Space</code> / <code>G1 Survivor Space</code> /
+<code>G1 Old Gen</code>.
+</td>
+</tr>
+</table>
 </div>
 </div>
 </div>
@@ -311,7 +344,7 @@ http_get_requests_total{class="com.redhat.developers.GreetingResource",country="
 </div>
 <div class="listingblock console-input">
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">mvn clean package -Dquarkus.kubernetes.deploy=true -Dquarkus.container-image.push=true</code></pre>
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">./mvnw clean package -Dquarkus.openshift.deploy=true -Dquarkus.container-image.push=true</code></pre>
 </div>
 </div>
 <div class="paragraph">
@@ -328,15 +361,26 @@ Firstly, let&#8217;s create a configmap:</p>
 </div>
 <div class="listingblock console-input">
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">oc set env --from=configmap/country-nl dc/greeting-app</code></pre>
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">oc set env --from=configmap/country-nl deployment/tutorial-app <i class="conum" data-value="1"></i><b>(1)</b></code></pre>
 </div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>There is no <code>DeploymentConfig</code> any more — the Quarkus OpenShift extension generates an <code>apps/v1</code>
+<code>Deployment</code>, named after the application. <code>oc set env --from=configmap</code> uppercases the ConfigMap
+keys, so <code>region</code>/<code>country</code> become the <code>REGION</code>/<code>COUNTRY</code> variables that
+<code>${REGION:CEE}</code> and <code>${COUNTRY:Romania}</code> expect.</td>
+</tr>
+</table>
 </div>
 <div class="paragraph">
-<p>Rollout the latest <code>DeploymentConfig</code> using:</p>
+<p>Setting an environment variable already triggers a new rollout; wait for it to finish with:</p>
 </div>
 <div class="listingblock console-input">
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">oc rollout latest dc/greeting-app</code></pre>
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">oc rollout status deployment/tutorial-app</code></pre>
 </div>
 </div>
 <div class="paragraph">
@@ -344,8 +388,19 @@ Firstly, let&#8217;s create a configmap:</p>
 </div>
 <div class="listingblock console-input">
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">curl $ROUTE_URL/q/metrics</code></pre>
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">export ROUTE_URL=https://$(kubectl get route tutorial-app -o jsonpath='{.spec.host}')
+curl $ROUTE_URL/messages
+curl $ROUTE_URL/q/metrics | grep http_get_requests_total</code></pre>
 </div>
+</div>
+<div class="listingblock console-output">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-text hljs" data-lang="text">http_get_requests_total{class="com.redhat.developers.GreetingResource",country="Netherlands",exception="none",method="findAll",profile="prod",region="Europe",result="success",uri="api.greet"} 2.0</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The <code>region</code> and <code>country</code> tags now carry the values coming from the ConfigMap, and <code>profile</code> is <code>prod</code>
+because the container runs a packaged application.</p>
 </div>
 </div>
 </div>

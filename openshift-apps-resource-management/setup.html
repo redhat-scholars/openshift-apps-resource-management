@@ -150,13 +150,11 @@ which allows you to run this entire tutorial within a container that will have a
 </td>
 <td class="content">
 <div class="paragraph">
-<p>GraalVM is only required if you intend to build a native image for you local operating system. If you want to create a container using a native image, you can use the Quarkus feature for this and don&#8217;t need to install GraalVM locally.
-If you installed GraalVM, make sure to also install <code>native-image</code></p>
+<p>GraalVM is only required if you intend to build a native image for your local operating system. If you want to create a container using a native image, you can use the Quarkus feature for this and don&#8217;t need to install GraalVM locally.</p>
 </div>
-<div id="quarkus-tutorial-graalvm-native" class="listingblock">
-<div class="content">
-<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">gu install native-image</code></pre>
-</div>
+<div class="paragraph">
+<p>Since GraalVM for JDK 17 the <code>native-image</code> tool ships with the distribution, so the old
+<code>gu install native-image</code> step no longer exists — <code>gu</code> itself was removed.</p>
 </div>
 </td>
 </tr>
@@ -192,33 +190,65 @@ If you installed GraalVM, make sure to also install <code>native-image</code></p
 </thead>
 <tbody>
 <tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><strong>Docker</strong></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://www.docker.com/products/docker-desktop" target="_blank" rel="noopener">Docker Desktop for Mac</a></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>dnf install docker</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://www.docker.com/products/docker-desktop" target="_blank" rel="noopener">Docker Desktop for Windows</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><strong>Podman</strong> or <strong>Docker</strong></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://podman-desktop.io/downloads" target="_blank" rel="noopener">Podman Desktop for Mac</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>dnf install podman</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://podman-desktop.io/downloads" target="_blank" rel="noopener">Podman Desktop for Windows</a></p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><strong>Java 21</strong></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>brew tap AdoptOpenJDK/openjdk &amp;&amp; brew cask install adoptopenjdk11</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>dnf install java-21-openjdk.x86_64</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://adoptopenjdk.net">Windows</a> (Make sure you set the <code>JAVA_HOME</code> environment variable and add <code>%JAVA_HOME%\bin</code> to your <code>PATH</code>)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>brew install --cask temurin@21</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>dnf install java-21-openjdk-devel</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://adoptium.net/temurin/releases/?version=21" target="_blank" rel="noopener">Eclipse Temurin 21</a> (Make sure you set the <code>JAVA_HOME</code> environment variable and add <code>%JAVA_HOME%\bin</code> to your <code>PATH</code>)</p></td>
 </tr>
 <tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><strong>Apache Maven 3.8.1+</strong></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><strong>Apache Maven 3.9.9+</strong></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>brew install maven</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>dnf install maven</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://maven.apache.org/download.cgi">Windows</a> (Make sure you set the <code>MAVEN_HOME</code> environment variable and add <code>%MAVEN_HOME%\bin</code> to your <code>PATH</code>)</p></td>
 </tr>
 <tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><strong>Graal VM</strong></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://github.com/graalvm/graalvm-ce-builds/releases/download/vm-{graalvm-version}/graalvm-ce-java11-darwin-amd64-{graalvm-version}.tar.gz">GraalVM Community Edition {graalvm-version}</a></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://github.com/graalvm/graalvm-ce-builds/releases/download/vm-{graalvm-version}/graalvm-ce-java11-linux-amd64-{graalvm-version}.tar.gz">GraalVM Community Edition {graalvm-version}</a></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://github.com/graalvm/graalvm-ce-builds/releases/download/vm-{graalvm-version}/graalvm-ce-java11-windows-amd64-{graalvm-version}.zip">GraalVM Community Edition {graalvm-version}</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><strong>GraalVM for JDK 21</strong> (optional)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://github.com/graalvm/graalvm-ce-builds/releases" target="_blank" rel="noopener">GraalVM Community Edition</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://github.com/graalvm/graalvm-ce-builds/releases" target="_blank" rel="noopener">GraalVM Community Edition</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://github.com/graalvm/graalvm-ce-builds/releases" target="_blank" rel="noopener">GraalVM Community Edition</a></p></td>
 </tr>
 </tbody>
 </table>
 </div>
 </div>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>This revision of the tutorial was validated with <strong>Quarkus 3.39.4</strong> on <strong>Java 21</strong>, <strong>Maven 3.9.11</strong>,
+<strong>Podman</strong>, and <strong>OpenShift 4.21</strong> (Kubernetes 1.34). After the first chapter you can use the generated
+<code>./mvnw</code> wrapper, which downloads its own Maven 3.9.16 and removes the need for a system-wide Maven.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>The chapters that interact with the cluster also use:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><a href="https://docs.redhat.com/en/documentation/openshift_container_platform/4.21/html/cli_tools/openshift-cli-oc" target="_blank" rel="noopener"><code>oc</code></a> — the OpenShift CLI. <code>kubectl</code> is bundled with it, and the tutorial uses both names.</p>
+</li>
+<li>
+<p><a href="https://github.com/rakyll/hey" target="_blank" rel="noopener"><code>hey</code></a> — a small HTTP load generator, used to put the application under load.</p>
+</li>
+<li>
+<p><a href="https://jqlang.github.io/jq/" target="_blank" rel="noopener"><code>jq</code></a> — used to pretty-print JSON returned by <code>kubectl -o jsonpath</code>.</p>
+</li>
+</ul>
 </div>
 </div>
 </div>

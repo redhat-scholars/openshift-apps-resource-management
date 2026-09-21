@@ -124,19 +124,53 @@
 <div class="paragraph">
 <p>Let&#8217;s see how Prometheus can help us detect incorrect limits or set these values in services that have been running for a long time without any limitation.</p>
 </div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+This chapter was validated on OpenShift 4.21 running in the
+<a href="https://developers.redhat.com/developer-sandbox">Developer Sandbox</a>, where you are a regular user of a
+single project. A few steps need cluster-wide privileges; each of them is called out with a
+<code>CLUSTER ADMIN</code> admonition and an alternative you can run as a normal user.
+</td>
+</tr>
+</table>
+</div>
 </div>
 </div>
 <div class="sect1">
 <h2 id="_understanding_requests_and_limits_with_examples"><a class="anchor" href="#_understanding_requests_and_limits_with_examples"></a>Understanding requests and limits with examples</h2>
 <div class="sectionbody">
 <div class="paragraph">
-<p>It&#8217;s important to understand how Kubernetes behave when <code>request</code> or <code>limit</code> values are exceeded.</p>
+<p>It&#8217;s important to understand how Kubernetes behaves when <code>request</code> or <code>limit</code> values are exceeded.</p>
 </div>
 <div class="sect2">
-<h3 id="_not_enought_resources"><a class="anchor" href="#_not_enought_resources"></a>Not enought resources</h3>
+<h3 id="_not_enough_resources"><a class="anchor" href="#_not_enough_resources"></a>Not enough resources</h3>
 <div class="paragraph">
-<p>The first thing to know is how much memory your nodes have available.
-To get it, run the following command:</p>
+<p>The first thing to know is how much memory you are allowed to use.</p>
+</div>
+<div class="paragraph">
+<p>On a cluster where you are an administrator, that is the memory of the nodes:</p>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="title">CLUSTER ADMIN</div>
+<div class="paragraph">
+<p>The following command reads cluster-scoped objects. As a Developer Sandbox user it fails with
+<code>nodes is forbidden: User "&lt;you&gt;" cannot list resource "nodes" &#8230;&#8203; at the cluster scope</code>.
+Skip to the <code>ResourceQuota</code> command below.</p>
+</div>
+</td>
+</tr>
+</table>
 </div>
 <div class="listingblock console-input">
 <div class="content">
@@ -146,37 +180,22 @@ To get it, run the following command:</p>
 <div class="listingblock console-output">
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">Allocatable:
-  attachable-volumes-gce-pd:  127
-  cpu:                        7500m
-  ephemeral-storage:          123201474766
-  hugepages-1Gi:              0
-  hugepages-2Mi:              0
-  memory:                     31769340Ki <i class="conum" data-value="1"></i><b>(1)</b>
-  pods:                       250
-System Info:
-  Machine ID:                                       93b30f2ca161f73c8836cf5b4512a557
+  attachable-volumes-aws-ebs:  25
+  cpu:                         15500m
+  ephemeral-storage:           114381692328
+  hugepages-1Gi:               0
+  hugepages-2Mi:               0
+  memory:                      64304476Ki <i class="conum" data-value="1"></i><b>(1)</b>
+  pods:                        250
 --
 Allocatable:
-  attachable-volumes-gce-pd:  127
-  cpu:                        7500m
-  ephemeral-storage:          123201474766
-  hugepages-1Gi:              0
-  hugepages-2Mi:              0
-  memory:                     31769340Ki <i class="conum" data-value="2"></i><b>(2)</b>
-  pods:                       250
-System Info:
-  Machine ID:                             e2c254dff58fc0471bdd31f52cd8a910
---
-Allocatable:
-  attachable-volumes-gce-pd:  127
-  cpu:                        7500m
-  ephemeral-storage:          123201474766
-  hugepages-1Gi:              0
-  hugepages-2Mi:              0
-  memory:                     31769340Ki <i class="conum" data-value="3"></i><b>(3)</b>
-  pods:                       250
-System Info:
-  Machine ID:                              364895fb31072858f7079639cab92df8</code></pre>
+  attachable-volumes-aws-ebs:  25
+  cpu:                         15500m
+  ephemeral-storage:           114381692328
+  hugepages-1Gi:               0
+  hugepages-2Mi:               0
+  memory:                      64304476Ki <i class="conum" data-value="2"></i><b>(2)</b>
+  pods:                        250</code></pre>
 </div>
 </div>
 <div class="colist arabic">
@@ -189,27 +208,57 @@ System Info:
 <td><i class="conum" data-value="2"></i><b>2</b></td>
 <td>Amount of memory on node 2</td>
 </tr>
+</table>
+</div>
+<div class="paragraph">
+<p>On a multi-tenant cluster you are instead bounded by the <code>ResourceQuota</code> of your project, which is the
+number that actually matters to you:</p>
+</div>
+<div class="listingblock console-input">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">kubectl describe resourcequota compute-deploy</code></pre>
+</div>
+</div>
+<div class="listingblock console-output">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">Name:       compute-deploy
+Namespace:  &lt;your-namespace&gt;
+Scopes:     NotTerminating
+ * Matches all pods that do not have an active deadline. These pods usually include long running pods whose container command is not expected to terminate.
+Resource                 Used   Hard
+--------                 ----   ----
+limits.cpu               1500m  30
+limits.memory            912Mi  30Gi <i class="conum" data-value="1"></i><b>(1)</b>
+limits.nvidia.com/gpu    0      0
+requests.cpu             110m   3
+requests.memory          768Mi  30Gi <i class="conum" data-value="2"></i><b>(2)</b>
+requests.nvidia.com/gpu  0      0</code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
 <tr>
-<td><i class="conum" data-value="3"></i><b>3</b></td>
-<td>Amount of memory on node 3</td>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>The sum of all <code>limits.memory</code> in the project may not exceed 30Gi</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>The sum of all <code>requests.memory</code> in the project may not exceed 30Gi</td>
 </tr>
 </table>
 </div>
 <div class="paragraph">
-<p>In this case, we&#8217;ve got three nodes with 32Gb of memory each.</p>
-</div>
-<div class="paragraph">
-<p>So let&#8217;s see what happens when we deploy a container with <code>requests</code> value bigger than the available free memory.</p>
+<p>So let&#8217;s see what happens when we deploy a container with a <code>requests</code> value bigger than the available free memory.</p>
 </div>
 <div class="listingblock console-input">
 <div class="title">apps/kubefiles/not-enough-resources-deployment.yaml</div>
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">resources:
     requests:
-        memory: "300000Mi" <i class="conum" data-value="1"></i><b>(1)</b>
+        memory: "25Gi" <i class="conum" data-value="1"></i><b>(1)</b>
         cpu: "250m" # 1/4 core
     limits:
-        memory: "900000Mi"
+        memory: "28Gi"
         cpu: "1000m" # 1 core</code></pre>
 </div>
 </div>
@@ -218,6 +267,20 @@ System Info:
 <tr>
 <td><i class="conum" data-value="1"></i><b>1</b></td>
 <td>Requesting more memory than the free available in any node</td>
+</tr>
+</table>
+</div>
+<div class="admonitionblock tip">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-tip" title="Tip"></i>
+</td>
+<td class="content">
+These values must stay <strong>below</strong> your quota but <strong>above</strong> the free memory of any single node,
+otherwise you get an admission error instead of the <code>Pending</code> status this section is about.
+Raise them if your cluster has bigger nodes.
+</td>
 </tr>
 </table>
 </div>
@@ -256,7 +319,7 @@ quarkus-next-5-5c56b868cf-djrr8   0/1     Pending   0          3s <i class="conu
 If this happens, Kubernetes would automatically reschedule the Pod into that node.</p>
 </div>
 <div class="paragraph">
-<p>Run the following command to get information about pending status:</p>
+<p>Run the following command to get information about the pending status:</p>
 </div>
 <div class="listingblock console-input">
 <div class="content">
@@ -269,36 +332,73 @@ If this happens, Kubernetes would automatically reschedule the Pod into that nod
 Events:
   Type     Reason            Age   From               Message
   ----     ------            ----  ----               -------
-  Warning  FailedScheduling  15m   default-scheduler  0/3 nodes are available: 3 Insufficient memory.
-  Warning  FailedScheduling  14m   default-scheduler  0/3 nodes are available: 3 Insufficient memory.</code></pre>
+  Warning  FailedScheduling  15m   default-scheduler  0/24 nodes are available: 10 node(s) had untolerated taint(s), 14 Insufficient memory. preemption: 0/24 nodes are available: 24 No preemption victims found for incoming pod.</code></pre>
 </div>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>If instead of a <code>Pending</code> Pod you get no Pod at all and the following error, your request is larger
+than the project quota — the <code>ResourceQuota</code> admission plugin rejects the ReplicaSet before the
+scheduler ever sees it:</p>
+</div>
+<div class="listingblock console-output">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">Error creating: pods "quarkus-next-5-..." is forbidden: exceeded quota: compute-deploy,
+requested: requests.memory=300000Mi, used: requests.memory=3712Mi, limited: requests.memory=30Gi</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Lower the values in the manifest so they fit inside your quota.</p>
+</div>
+</td>
+</tr>
+</table>
 </div>
 </div>
 <div class="sect2">
 <h3 id="_clean_up"><a class="anchor" href="#_clean_up"></a>Clean Up</h3>
 <div class="paragraph">
-<p>Run the following command to undeploy current namespace:</p>
+<p>Run the following command to remove what you deployed in this section:</p>
 </div>
 <div class="listingblock console-input">
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">kubectl delete all --all</code></pre>
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">kubectl delete -f apps/kubefiles/not-enough-resources-deployment.yaml</code></pre>
 </div>
+</div>
+<div class="admonitionblock warning">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-warning" title="Warning"></i>
+</td>
+<td class="content">
+Do not run <code>kubectl delete all --all</code>. It deletes <strong>everything</strong> in the project, including the
+<code>tutorial-app</code> and the PostgreSQL database you deployed in the previous chapters.
+</td>
+</tr>
+</table>
 </div>
 </div>
 <div class="sect2">
 <h3 id="_exceeding_limits_memory"><a class="anchor" href="#_exceeding_limits_memory"></a>Exceeding limits memory</h3>
 <div class="paragraph">
-<p>Let&#8217;s see what&#8217;s happen when a Pod is running and the limit set is exceeded.</p>
+<p>Let&#8217;s see what happens when a Pod is running and the limit set is exceeded.</p>
 </div>
 <div class="listingblock console-input">
 <div class="title">apps/kubefiles/oom-killed-deployment.yaml</div>
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">resources:
     requests:
-        memory: "300Mi"
+        memory: "400Mi"
         cpu: "250m" # 1/4 core
     limits:
-        memory: "400Mi"
+        memory: "500Mi"
         cpu: "1000m" # 1 core</code></pre>
 </div>
 </div>
@@ -322,14 +422,22 @@ memconsume-b588f8dc-78jsv   1/1     Running   0          28s</code></pre>
 </div>
 </div>
 <div class="paragraph">
-<p>This service has a special endpoint that consumes most of the memory-making the service consume more memory than the one set in the <code>limits</code> section:</p>
+<p>This service has a special endpoint that consumes most of the memory, making the service consume more memory than the one set in the <code>limits</code> section:</p>
 </div>
 <div class="listingblock console-input">
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">kubectl exec -ti memconsume-b588f8dc-78jsv /bin/bash
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">kubectl exec -ti memconsume-b588f8dc-78jsv -- /bin/bash <i class="conum" data-value="1"></i><b>(1)</b>
 
 curl localhost:8080/consume</code></pre>
 </div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>The <code>--</code> separator is mandatory; <code>kubectl exec POD COMMAND</code> was removed.</td>
+</tr>
+</table>
 </div>
 <div class="paragraph">
 <p>After that, you&#8217;ll be exited from inside the container as it was restarted because of the memory limit.</p>
@@ -353,12 +461,12 @@ Containers:
     Port:           8080/TCP
     Host Port:      0/TCP
     State:          Running
-      Started:      Wed, 22 Dec 2021 11:20:35 +0100
+      Started:      Sun, 21 Sep 2026 11:20:35 +0200
     Last State:     Terminated
       Reason:       OOMKilled <i class="conum" data-value="1"></i><b>(1)</b>
       Exit Code:    137
-      Started:      Wed, 22 Dec 2021 11:13:21 +0100
-      Finished:     Wed, 22 Dec 2021 11:20:34 +0100
+      Started:      Sun, 21 Sep 2026 11:13:21 +0200
+      Finished:     Sun, 21 Sep 2026 11:20:34 +0200
     Ready:          True
     Restart Count:  1
     Limits:
@@ -375,7 +483,7 @@ Containers:
 <table>
 <tr>
 <td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Previous state was: killed because an out of memory</td>
+<td>Previous state was: killed because of an out of memory</td>
 </tr>
 </table>
 </div>
@@ -386,12 +494,9 @@ As there is a replica set, it&#8217;s automatically restarted.</p>
 </div>
 <div class="sect2">
 <h3 id="_clean_up_2"><a class="anchor" href="#_clean_up_2"></a>Clean Up</h3>
-<div class="paragraph">
-<p>Run the following command to undeploy current namespace:</p>
-</div>
 <div class="listingblock console-input">
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">kubectl delete all --all</code></pre>
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">kubectl delete -f apps/kubefiles/oom-killed-deployment.yaml</code></pre>
 </div>
 </div>
 </div>
@@ -402,7 +507,7 @@ As there is a replica set, it&#8217;s automatically restarted.</p>
 Also, we&#8217;ve seen that when a limit is exceeded, the Pod is restarted, but what&#8217;s happening when you set a <code>limit</code> value greater than the available memory?</p>
 </div>
 <div class="paragraph">
-<p>Let&#8217;s deploy two deployments where the sum of their limits are bigger than the available memory in the cluster:</p>
+<p>Let&#8217;s deploy two deployments where the sum of their limits is bigger than the available memory in the cluster:</p>
 </div>
 <div class="listingblock console-input">
 <div class="title">apps/kubefiles/sum-exceeding-deployments.yaml</div>
@@ -412,7 +517,7 @@ Also, we&#8217;ve seen that when a limit is exceeded, the Pod is restarted, but 
         memory: "300Mi"
         cpu: "250m" # 1/4 core
     limits:
-        memory: "50000Mi" <i class="conum" data-value="1"></i><b>(1)</b>
+        memory: "14Gi" <i class="conum" data-value="1"></i><b>(1)</b>
         cpu: "1000m" # 1 core</code></pre>
 </div>
 </div>
@@ -420,7 +525,7 @@ Also, we&#8217;ve seen that when a limit is exceeded, the Pod is restarted, but 
 <table>
 <tr>
 <td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Two deployments are set in the same file with same limits</td>
+<td>Two deployments are set in the same file with the same limits</td>
 </tr>
 </table>
 </div>
@@ -431,7 +536,7 @@ Also, we&#8217;ve seen that when a limit is exceeded, the Pod is restarted, but 
 </div>
 <div class="paragraph">
 <p>Both Pods are running as they have enough requested resources.
-<code>limits</code> are not used to impact Pod scheduler, only used at runtime to protect memory consumption.</p>
+<code>limits</code> are not used to impact the Pod scheduler, only used at runtime to protect memory consumption.</p>
 </div>
 <div class="listingblock console-input">
 <div class="content">
@@ -445,15 +550,16 @@ quarkus-next-5-6bd8686487-ht6gx   1/1     Running   0          10s
 quarkus-next-6-6bd8686487-q5ls6   1/1     Running   0          10s</code></pre>
 </div>
 </div>
+<div class="paragraph">
+<p>Together the two Pods have committed 28Gi of memory limits while only asking for 600Mi of actual
+memory — that is exactly the overcommitment we will measure with Prometheus later in this chapter.</p>
+</div>
 </div>
 <div class="sect2">
 <h3 id="_clean_up_3"><a class="anchor" href="#_clean_up_3"></a>Clean Up</h3>
-<div class="paragraph">
-<p>Run the following command to undeploy current namespace:</p>
-</div>
 <div class="listingblock console-input">
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">kubectl delete all --all</code></pre>
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">kubectl delete -f apps/kubefiles/sum-exceeding-deployments.yaml</code></pre>
 </div>
 </div>
 </div>
@@ -466,12 +572,36 @@ quarkus-next-6-6bd8686487-q5ls6   1/1     Running   0          10s</code></pre>
 <p>Let&#8217;s see how Prometheus can help us detect incorrect limits or set these values in services running for a long time without any limitation.</p>
 </div>
 <div class="paragraph">
-<p>In the case of an OpenShift cluster, you can navigate to Observe &#8594; Metrics to open the metrics console and run Prometheus queries.</p>
+<p>In the case of an OpenShift cluster, you can navigate to <strong>Observe &#8594; Metrics</strong> to open the metrics console and run Prometheus queries.</p>
 </div>
 <div class="imageblock">
 <div class="content">
 <img src="_images/monitor.png" alt="monitor">
 </div>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>OpenShift 4.21 replaced the <strong>Developer</strong> / <strong>Administrator</strong> perspectives with a single <strong>Core platform</strong>
+navigation, so <strong>Observe &#8594; Metrics</strong> is now the only path to the query browser.</p>
+</div>
+<div class="paragraph">
+<p>The page opens on <strong>All Projects</strong>. If you are not a cluster administrator that returns
+<code>Access restricted</code> / <code>Bad Request</code>: use the <strong>Project:</strong> selector at the top of the page to switch to
+your own project before running any query.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>In every query below, replace <code>&lt;your-namespace&gt;</code> with the project you are working in
+(<code>kubectl config view --minify -o jsonpath='{..namespace}'</code> prints it).</p>
 </div>
 <div class="sect2">
 <h3 id="_detecting_resources_without_memory_limits"><a class="anchor" href="#_detecting_resources_without_memory_limits"></a>Detecting resources without memory limits</h3>
@@ -480,7 +610,7 @@ quarkus-next-6-6bd8686487-q5ls6   1/1     Running   0          10s</code></pre>
 </div>
 <div class="paragraph">
 <p>Let&#8217;s see how to use Prometheus to detect these containers.
-Let&#8217;s deploy three services where one service has limits, and the other is without limits.</p>
+Let&#8217;s deploy three services where one service has limits, and the other two are without limits.</p>
 </div>
 <div class="listingblock console-input">
 <div class="content">
@@ -490,7 +620,7 @@ kubectl apply -f apps/kubefiles/no-resources-section-deployment-2.yaml</code></p
 </div>
 </div>
 <div class="paragraph">
-<p>Let&#8217;s check that all Pod are up and running:</p>
+<p>Let&#8217;s check that all Pods are up and running:</p>
 </div>
 <div class="listingblock console-input">
 <div class="content">
@@ -500,40 +630,72 @@ kubectl apply -f apps/kubefiles/no-resources-section-deployment-2.yaml</code></p
 <div class="listingblock console-output">
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">NAME                              READY   STATUS    RESTARTS   AGE
-memconsume-58b6b94fbf-55hsw       1/1     Running   0          119s
-quarkus-next-5-64d7849864-ksln4   1/1     Running   0          118s
-quarkus-next-6-64d7849864-2bfj4   1/1     Running   0          14s</code></pre>
+memconsume-86874485-ht54w         1/1     Running   0          119s
+quarkus-next-5-596f665c7b-ttjkz   1/1     Running   0          118s
+quarkus-next-6-596f665c7b-sftwv   1/1     Running   0          14s</code></pre>
 </div>
 </div>
 <div class="paragraph">
-<p><code>quarkus-next</code> pods are the ones without any limit.</p>
+<p><code>quarkus-next</code> pods are the ones whose manifests declare no limit.</p>
 </div>
 <div class="paragraph">
-<p>Put the following PromQL expression into query editor and push <strong>Run Queries</strong> button.</p>
+<p>Put the following PromQL expression into the query editor and push the <strong>Run queries</strong> button.</p>
 </div>
 <div class="listingblock console-input">
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">(count by (namespace,pod,container)(kube_pod_container_info{container!="", namespace='default'}) unless sum by (namespace,pod,container)(kube_pod_container_resource_limits{resource="memory"}))</code></pre>
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">(count by (namespace,pod,container)(kube_pod_container_info{container!="", namespace='&lt;your-namespace&gt;'}) unless sum by (namespace,pod,container)(kube_pod_container_resource_limits{resource="memory"}))</code></pre>
 </div>
 </div>
 <div class="paragraph">
-<p>And the output should be similar as in the following figure showing that containers of both <code>quarkus-next</code> pods have no limits:</p>
+<p>On a cluster with no <code>LimitRange</code>, the output lists the containers of both <code>quarkus-next</code> pods.
+On the Developer Sandbox you instead get an empty result:</p>
 </div>
 <div class="imageblock">
 <div class="content">
 <img src="_images/no-limits.png" alt="no limits">
 </div>
 </div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="title">Why the query returns nothing on the Developer Sandbox</div>
 <div class="paragraph">
-<p>The previous query is helpful to get an overview of the situation, but if you&#8217;ve got many results, you might not know where to start solving the problem and setting some limits.
-As limits are directly related to deployment density, you can start with the top 10 containers without memory limits using more memory.</p>
-</div>
-<div class="paragraph">
-<p>Put the following PromQL expression into query editor and push the <strong>Run Queries</strong> button.</p>
+<p>The Sandbox project ships a <code>LimitRange</code> named <code>resource-limits</code> that <strong>injects</strong> default requests and
+limits into every container that does not declare its own, so a Pod without a <code>resources</code> section
+still ends up with one:</p>
 </div>
 <div class="listingblock console-input">
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-none hljs">topk(10,sum by (namespace,pod,container)(container_memory_usage_bytes{container!="", namespace='default'}) unless sum by (namespace,pod,container)(kube_pod_container_resource_limits{resource="memory"}))</code></pre>
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">kubectl get pod -l app=quarkus-next-5 -o jsonpath='{.items[0].spec.containers[0].resources}'</code></pre>
+</div>
+</div>
+<div class="listingblock console-output">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">{"limits":{"cpu":"1","memory":"1000Mi"},"requests":{"cpu":"10m","memory":"64Mi"}}</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>An empty result is therefore the <strong>desired</strong> outcome — it proves no container in the project is running
+unbounded. Run <code>kubectl describe limitrange resource-limits</code> to see the defaults being applied.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>The previous query is helpful to get an overview of the situation, but if you&#8217;ve got many results, you might not know where to start solving the problem and setting some limits.
+As limits are directly related to deployment density, you can start with the containers using the most memory.</p>
+</div>
+<div class="paragraph">
+<p>Put the following PromQL expression into the query editor and push the <strong>Run queries</strong> button.</p>
+</div>
+<div class="listingblock console-input">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-none hljs">topk(10, sum by (pod,container)(container_memory_usage_bytes{container!="", container!="POD", namespace='&lt;your-namespace&gt;'}))</code></pre>
 </div>
 </div>
 <div class="imageblock">
@@ -541,19 +703,37 @@ As limits are directly related to deployment density, you can start with the top
 <img src="_images/top-10-no-limits.png" alt="top 10 no limits">
 </div>
 </div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<code>container!="POD"</code> excludes the infrastructure <strong>pause</strong> container, which is present in every Pod
+and would otherwise fill the top 10 with rows of 0 bytes.
+</td>
+</tr>
+</table>
+</div>
 <div class="paragraph">
-<p>In this query, you see the top 10 containers with its memory consumation.
-<code>quarkus-next-5-64d7849864-ksln4</code> consumes more memory than <code>quarkus-next-6-64d7849864-2bfj4</code>.</p>
+<p>In this query, you see the top 10 containers with their memory consumption, so you know which ones to
+size first. On a cluster without a <code>LimitRange</code> you can keep the <code>unless</code> clause of the previous query
+to restrict the list to the containers that have no limit at all:</p>
+</div>
+<div class="listingblock console-input">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-none hljs">topk(10,sum by (namespace,pod,container)(container_memory_usage_bytes{container!="", container!="POD", namespace='&lt;your-namespace&gt;'}) unless sum by (namespace,pod,container)(kube_pod_container_resource_limits{resource="memory"}))</code></pre>
+</div>
 </div>
 </div>
 <div class="sect2">
 <h3 id="_clean_up_4"><a class="anchor" href="#_clean_up_4"></a>Clean Up</h3>
-<div class="paragraph">
-<p>Run the following command to undeploy current namespace:</p>
-</div>
 <div class="listingblock console-input">
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">kubectl delete all --all</code></pre>
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">kubectl delete -f apps/kubefiles/deployment-resources-limits.yaml
+kubectl delete -f apps/kubefiles/no-resources-section-deployment.yaml
+kubectl delete -f apps/kubefiles/no-resources-section-deployment-2.yaml</code></pre>
 </div>
 </div>
 </div>
@@ -593,7 +773,7 @@ memconsume-58b6b94fbf-s67tg     1/1     Running   0          82s</code></pre>
 </div>
 <div class="listingblock console-input">
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">kubectl exec -ti memconsume-2-58b6b94fbf-c4ctw  /bin/bash
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">kubectl exec -ti memconsume-2-58b6b94fbf-c4ctw -- /bin/bash
 
 curl localhost:8080/hello/consume/100000000
 curl localhost:8080/hello/consume/100000000
@@ -601,11 +781,11 @@ curl localhost:8080/hello/consume/100000000</code></pre>
 </div>
 </div>
 <div class="paragraph">
-<p>Run the following PromQL expression to get the list of all containers using more than 70% of memory set in <code>limits</code>.</p>
+<p>Run the following PromQL expression to get the list of all containers using more than 70% of the memory set in <code>limits</code>.</p>
 </div>
 <div class="listingblock console-input">
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">(sum by (namespace,pod,container)(container_memory_usage_bytes{container!="", namespace='default'}) / sum by (namespace,pod,container)(kube_pod_container_resource_limits{resource="memory", namespace='default'})) &gt; 0.7</code></pre>
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">(sum by (namespace,pod,container)(container_memory_usage_bytes{container!="", namespace='&lt;your-namespace&gt;'}) / sum by (namespace,pod,container)(kube_pod_container_resource_limits{resource="memory", namespace='&lt;your-namespace&gt;'})) &gt; 0.7</code></pre>
 </div>
 </div>
 <div class="imageblock">
@@ -614,56 +794,99 @@ curl localhost:8080/hello/consume/100000000</code></pre>
 </div>
 </div>
 <div class="paragraph">
-<p>In the previous screenshot, <code>memconsume-2-58b6b94fbf-c4ctw</code> container is consuming 76% of the memory.</p>
+<p>In the previous screenshot, the <code>memconsume-2</code> container is consuming 78% of its memory limit.</p>
 </div>
 <div class="paragraph">
-<p>One strategy to set a new value for <code>limits</code> can be increased by 25% of the value and monitor again.</p>
+<p>One strategy to set a new value for <code>limits</code> is to increase it by 25% and monitor again.</p>
 </div>
 <div class="paragraph">
-<p>But what&#8217;s happened to the container has no limit?</p>
+<p>But what happens to the container that has no limit?</p>
 </div>
 <div class="paragraph">
-<p>In this case, it&#8217;s a good idea to choose the value of the container that consumed the most during it was running.</p>
+<p>In this case, it&#8217;s a good idea to choose the value of the container that consumed the most while it was running.</p>
 </div>
 <div class="paragraph">
 <p>Run the following PromQL expression to get this value:</p>
 </div>
 <div class="listingblock console-input">
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">max by (namespace,owner_name,container)((container_memory_usage_bytes{container!="POD",container!="", namespace='default'}) * on(namespace,pod) group_left(owner_name) avg by (namespace,pod,owner_name)(kube_pod_owner{}))</code></pre>
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">max by (namespace,owner_name,container)((container_memory_usage_bytes{container!="POD",container!="", namespace='&lt;your-namespace&gt;'}) * on(namespace,pod) group_left(owner_name) avg by (namespace,pod,owner_name)(kube_pod_owner{}))</code></pre>
 </div>
 </div>
 <div class="paragraph">
-<p>The <code>memconsume-2</code> consumed a max of 319Mb in its lifetime while <code>memconsume</code> just 141Mb.</p>
+<p><code>memconsume-2</code> consumed a maximum of 328.9M in its lifetime while <code>memconsume</code> just 8.25M.</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="_images/max_mem.png" alt="max mem">
+</div>
 </div>
 <div class="paragraph">
-<p>With this data in mind, containers won’t run out of resources.</p>
+<p>With this data in mind, containers won&#8217;t run out of resources.</p>
 </div>
 </div>
 </div>
 </div>
 <div class="sect1">
-<h2 id="_overcommiting"><a class="anchor" href="#_overcommiting"></a>Overcommiting</h2>
+<h2 id="_overcommitting"><a class="anchor" href="#_overcommitting"></a>Overcommitting</h2>
 <div class="sectionbody">
 <div class="paragraph">
-<p>We&#8217;ve seen in the <a href="#_overcommitment_of_memory">Overcommitment of memory</a> section that you can set as much as limit as you want and the container will still be deployable.</p>
+<p>We&#8217;ve seen in the <a href="#_overcommitment_of_memory">Overcommitment of memory</a> section that you can set as much limit as you want and the container will still be deployable.</p>
 </div>
 <div class="paragraph">
-<p>With few services deployed in the cluster, it&#8217;s easier to control the limits of each one to not overcommitted the total amount of memory.</p>
+<p>With few services deployed in the cluster, it&#8217;s easier to control the limits of each one so as not to overcommit the total amount of memory.</p>
 </div>
 <div class="paragraph">
-<p>We can check the overcommit percentage of our namespace on memory, that is suming the total amount of memory of each cluster node and the total amount of <code>limits</code>.</p>
+<p>We can check the overcommit percentage of our namespace on memory, that is summing the total amount of memory available and the total amount of <code>limits</code>.</p>
 </div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="title">CLUSTER ADMIN</div>
 <div class="paragraph">
-<p>Run the following PromQL expression to get this value:</p>
+<p><code>kube_node_status_capacity</code> is a <strong>cluster-scoped</strong> metric. Thanos multi-tenancy only exposes metrics
+carrying your own <code>namespace</code> label, so as a Developer Sandbox user this series returns
+<strong>No datapoints found</strong> and both queries below evaluate to nothing.
+Use the quota-based variants that follow instead — they express the same idea against the ceiling that
+actually applies to you.</p>
+</div>
+</td>
+</tr>
+</table>
 </div>
 <div class="listingblock console-input">
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">100 * sum(kube_pod_container_resource_limits{container!="",resource="memory", namespace='default'} ) / sum(kube_node_status_capacity{resource='memory'})</code></pre>
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">100 * sum(kube_pod_container_resource_limits{container!="",resource="memory", namespace='&lt;your-namespace&gt;'} ) / sum(kube_node_status_capacity{resource='memory'})</code></pre>
 </div>
 </div>
 <div class="paragraph">
-<p>In this case, the sum of all limits of the <code>default</code> namespace is just 0.82 % of the memory of the whole cluster.</p>
+<p>Having the percentage against the whole cluster is useful, but since Pods are deployed into specific nodes, it&#8217;s more beneficial to know this relationship by node.</p>
+</div>
+<div class="listingblock console-input">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">100 * sum by (node)((kube_pod_container_resource_limits{container!='',resource='memory', namespace='&lt;your-namespace&gt;'} ))/sum by (node)(kube_node_status_capacity{resource='memory'})</code></pre>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_measuring_overcommitment_against_your_quota"><a class="anchor" href="#_measuring_overcommitment_against_your_quota"></a>Measuring overcommitment against your quota</h3>
+<div class="paragraph">
+<p>On a multi-tenant cluster the meaningful denominator is not the cluster memory but the
+<code>limits.memory</code> of your <code>ResourceQuota</code>, and <code>kube_resourcequota</code> <strong>is</strong> visible to you.</p>
+</div>
+<div class="paragraph">
+<p>Run the following PromQL expression to get the percentage of your quota that is already committed:</p>
+</div>
+<div class="listingblock console-input">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">100 * sum(kube_pod_container_resource_limits{container!="",resource="memory", namespace='&lt;your-namespace&gt;'}) / sum(kube_resourcequota{namespace='&lt;your-namespace&gt;', resource='limits.memory', type='hard'})</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>In this case, the sum of all limits of the project is 17.12 % of the memory the project is allowed to commit.</p>
 </div>
 <div class="imageblock">
 <div class="content">
@@ -671,32 +894,25 @@ curl localhost:8080/hello/consume/100000000</code></pre>
 </div>
 </div>
 <div class="paragraph">
-<p>Having the percentage with the total cluster is useful, but since Pods are deployed into specific nodes, it&#8217;s more beneficial to know this relationship by a node.</p>
-</div>
-<div class="paragraph">
-<p>Run the following PromQL expression to get these values:</p>
+<p>And to see which Pod is responsible for which share of that budget:</p>
 </div>
 <div class="listingblock console-input">
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">100 * sum by (node)((kube_pod_container_resource_limits{container!='',resource='memory', namespace='default'} ))/sum by (node)(kube_node_status_capacity{resource='memory'})</code></pre>
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">100 * sum by (pod)(kube_pod_container_resource_limits{container!='',resource='memory', namespace='&lt;your-namespace&gt;'}) / scalar(sum(kube_resourcequota{namespace='&lt;your-namespace&gt;', resource='limits.memory', type='hard'}))</code></pre>
 </div>
-</div>
-<div class="paragraph">
-<p>In this case, the deployment in each node will use at most 1.24% of node memory.</p>
 </div>
 <div class="imageblock">
 <div class="content">
 <img src="_images/mem_node_limits.png" alt="mem node limits">
 </div>
 </div>
+</div>
 <div class="sect2">
 <h3 id="_clean_up_5"><a class="anchor" href="#_clean_up_5"></a>Clean Up</h3>
-<div class="paragraph">
-<p>Run the following command to undeploy current namespace:</p>
-</div>
 <div class="listingblock console-input">
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">kubectl delete all --all</code></pre>
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">kubectl delete -f apps/kubefiles/deployment-resources-limits.yaml
+kubectl delete -f apps/kubefiles/deployment-resources-limits-2.yaml</code></pre>
 </div>
 </div>
 </div>
@@ -706,8 +922,8 @@ curl localhost:8080/hello/consume/100000000</code></pre>
 <h2 id="_automatic_scaling"><a class="anchor" href="#_automatic_scaling"></a>Automatic Scaling</h2>
 <div class="sectionbody">
 <div class="paragraph">
-<p>When dealing with limits, you might want to protect against getting out of resources.
-Kubernetes offers Horitzontal Pod Autoscaler (HPA), a way to configure Kubernetes to increase replicas depending on CPU or memory usage.</p>
+<p>When dealing with limits, you might want to protect against running out of resources.
+Kubernetes offers the Horizontal Pod Autoscaler (HPA), a way to configure Kubernetes to increase replicas depending on CPU or memory usage.</p>
 </div>
 <div class="sect2">
 <h3 id="_deploying_application"><a class="anchor" href="#_deploying_application"></a>Deploying application</h3>
@@ -715,14 +931,13 @@ Kubernetes offers Horitzontal Pod Autoscaler (HPA), a way to configure Kubernete
 <p>Deploy the following application which has aggressive limitations for its business use case (calculating the first 100 prime numbers).</p>
 </div>
 <div class="listingblock console-input">
-<div class="title">deployment-prime.yaml</div>
+<div class="title">apps/kubefiles/deployment-prime.yaml</div>
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-yaml hljs" data-lang="yaml">---
 apiVersion: v1
 kind: Service
 metadata:
   annotations:
-    app.quarkus.io/build-timestamp: 2024-01-15 - 11:05:18 +0000
     prometheus.io/scrape: "true"
     prometheus.io/path: /q/metrics
     prometheus.io/port: "8080"
@@ -746,12 +961,6 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  annotations:
-    app.quarkus.io/build-timestamp: 2024-01-15 - 11:05:18 +0000
-    prometheus.io/scrape: "true"
-    prometheus.io/path: /q/metrics
-    prometheus.io/port: "8080"
-    prometheus.io/scheme: http
   labels:
     app.kubernetes.io/name: bs-mem-mgnt
     app.kubernetes.io/version: 1.0.0-SNAPSHOT
@@ -765,12 +974,6 @@ spec:
       app.kubernetes.io/name: bs-mem-mgnt
   template:
     metadata:
-      annotations:
-        app.quarkus.io/build-timestamp: 2024-01-15 - 11:05:18 +0000
-        prometheus.io/scrape: "true"
-        prometheus.io/path: /q/metrics
-        prometheus.io/port: "8080"
-        prometheus.io/scheme: http
       labels:
         app.kubernetes.io/managed-by: quarkus
         app.kubernetes.io/version: 1.0.0-SNAPSHOT
@@ -791,26 +994,49 @@ spec:
               protocol: TCP
           resources:
             limits:
-              cpu: 100m
+              cpu: 100m <i class="conum" data-value="1"></i><b>(1)</b>
               memory: 800Mi
             requests:
               cpu: 50m
               memory: 250Mi</code></pre>
 </div>
 </div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>A tenth of a core is deliberately too little for the workload, so the HPA reacts quickly</td>
+</tr>
+</table>
+</div>
 <div class="paragraph">
 <p>Apply the deployment file:</p>
 </div>
 <div class="listingblock console-input">
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">kubectl apply -f deployment-prime.yaml</code></pre>
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">kubectl apply -f apps/kubefiles/deployment-prime.yaml</code></pre>
 </div>
 </div>
 <div class="paragraph">
-<p>Then create an OpenShit Route to access to the service, and create a new file with the HPA definition:</p>
+<p>Then create an OpenShift Route to access the service:</p>
 </div>
 <div class="listingblock console-input">
-<div class="title">hpa.yaml</div>
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">oc expose service/bs-mem-mgnt
+oc get route bs-mem-mgnt</code></pre>
+</div>
+</div>
+<div class="listingblock console-output">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">NAME          HOST/PORT                                                   SERVICES      PORT   TERMINATION   WILDCARD
+bs-mem-mgnt   bs-mem-mgnt-&lt;your-namespace&gt;.apps.&lt;cluster&gt;.openshiftapps.com   bs-mem-mgnt   http                 None</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>And apply the HPA definition:</p>
+</div>
+<div class="listingblock console-input">
+<div class="title">apps/kubefiles/hpa.yaml</div>
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-yaml hljs" data-lang="yaml">apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
@@ -832,6 +1058,11 @@ spec:
           type: Utilization</code></pre>
 </div>
 </div>
+<div class="listingblock console-input">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">kubectl apply -f apps/kubefiles/hpa.yaml</code></pre>
+</div>
+</div>
 <div class="paragraph">
 <p>In this definition, we set that at most only 5 pods can be created, and the metric to scale up (and down) Pods is the CPU.</p>
 </div>
@@ -844,20 +1075,8 @@ In a terminal window let&#8217;s use <code>hey</code> to generate traffic:</p>
 </div>
 <div class="listingblock console-input">
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">hey -c 10 -z 15s https://greeting-app-asotobue-dev.apps.sandbox-m2.ll9k.p1.openshiftapps.com/hello/prime</code></pre>
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">hey -c 10 -z 15s http://$(oc get route bs-mem-mgnt -o jsonpath='{.spec.host}')/hello/prime</code></pre>
 </div>
-</div>
-<div class="admonitionblock important">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-important" title="Important"></i>
-</td>
-<td class="content">
-Change URL with your route URL.
-</td>
-</tr>
-</table>
 </div>
 <div class="paragraph">
 <p>List the Pods to validate that more than one replica has been created automatically.</p>
@@ -870,19 +1089,47 @@ Change URL with your route URL.
 <div class="listingblock console-output">
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">NAME                           READY   STATUS    RESTARTS   AGE
-bs-mem-mgnt-84d6595648-74sdn   1/1     Running   0          2m10s
-bs-mem-mgnt-84d6595648-qmdbd   1/1     Running   0          85s
-bs-mem-mgnt-84d6595648-qstbt   1/1     Running   0          20m
-bs-mem-mgnt-84d6595648-r5d8n   1/1     Running   0          115s</code></pre>
+bs-mem-mgnt-68996cc846-5z9j8   1/1     Running   0          8m52s
+bs-mem-mgnt-68996cc846-dr6wr   1/1     Running   0          4m56s
+bs-mem-mgnt-68996cc846-jps9h   1/1     Running   0          6m26s
+bs-mem-mgnt-68996cc846-qdmns   1/1     Running   0          5m41s</code></pre>
 </div>
+</div>
+<div class="paragraph">
+<p>And inspect the autoscaler itself:</p>
+</div>
+<div class="listingblock console-input">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">kubectl get hpa</code></pre>
+</div>
+</div>
+<div class="listingblock console-output">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">NAME      REFERENCE                TARGETS       MINPODS   MAXPODS   REPLICAS   AGE
+example   Deployment/bs-mem-mgnt   cpu: 3%/50%   1         5         4          7m</code></pre>
+</div>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+Scaling down is deliberately slow (the default stabilization window is 5 minutes), so the
+replica count stays high for a while after <code>hey</code> finishes.
+</td>
+</tr>
+</table>
 </div>
 </div>
 <div class="sect2">
 <h3 id="_clean_up_6"><a class="anchor" href="#_clean_up_6"></a>Clean Up</h3>
 <div class="listingblock console-input">
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">kubectl delete -f deployment-prime.yaml
-kubectl delete -f hpa.yaml</code></pre>
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">kubectl delete -f apps/kubefiles/hpa.yaml
+kubectl delete -f apps/kubefiles/deployment-prime.yaml
+oc delete route bs-mem-mgnt</code></pre>
 </div>
 </div>
 </div>
@@ -893,23 +1140,69 @@ kubectl delete -f hpa.yaml</code></pre>
 <div class="sectionbody">
 <div class="paragraph">
 <p>But there is another way to calculate <code>requests</code> and <code>limits</code>.
-And that&#8217;s using the Virtual Pod Autoscaler.</p>
+And that&#8217;s using the Vertical Pod Autoscaler.</p>
 </div>
 <div class="paragraph">
-<p>The Virtual Pod Autoscaler automatically computes historical and current CPU and memory usage for the containers in those pods and uses this data to determine optimized resource limits and requests to ensure that these pods are operating efficiently at all times.</p>
+<p>The Vertical Pod Autoscaler automatically computes historical and current CPU and memory usage for the containers in those pods and uses this data to determine optimized resource limits and requests to ensure that these pods are operating efficiently at all times.</p>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="title">CLUSTER ADMIN</div>
+<div class="paragraph">
+<p>Unlike the HPA, the VPA is <strong>not</strong> part of Kubernetes: it is delivered as an Operator that a cluster
+administrator has to install cluster-wide. <strong>This whole section cannot be completed on the Developer
+Sandbox.</strong> As a regular user you will observe:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>the <strong>Software Catalog</strong> contains no <strong>Vertical Pod Autoscaler</strong> entry (operator catalogs are
+administrator-only);</p>
+</li>
+<li>
+<p><code>oc api-resources --api-group=autoscaling.k8s.io</code> returns an empty list;</p>
+</li>
+<li>
+<p><code>kubectl get crd verticalpodautoscalers.autoscaling.k8s.io</code> is rejected with
+<code>customresourcedefinitions &#8230;&#8203; is forbidden &#8230;&#8203; at the cluster scope</code>.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>Read through the steps to understand the mechanism, and come back to them on a cluster where you are
+an administrator.</p>
+</div>
+</td>
+</tr>
+</table>
 </div>
 <div class="sect2">
 <h3 id="_installing_vpa"><a class="anchor" href="#_installing_vpa"></a>Installing VPA</h3>
 <div class="paragraph">
-<p>To install Virtual Pod Autoscaler in OpenShift, just install the Virtual Pod Autoscaler Operator from Operator Hub with all defaults as shown in the following figure:</p>
+<p>To install the Vertical Pod Autoscaler in OpenShift, install the <strong>Vertical Pod Autoscaler Operator</strong>
+with all defaults.</p>
 </div>
-<div class="imageblock">
-<div class="content">
-<img src="_images/vpa_install.png" alt="vpa install">
-</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+OpenShift 4.21 merged the <strong>Developer</strong> and <strong>Administrator</strong> perspectives into a single
+<strong>Core platform</strong> navigation and OperatorHub is now reached through <strong>Ecosystem &#8594; Software Catalog</strong>.
+The old <code>/operatorhub/ns/&lt;namespace&gt;</code> URL returns <strong>404: Page Not Found</strong>.
+</td>
+</tr>
+</table>
 </div>
 <div class="paragraph">
-<p>To validate installation run the following command:</p>
+<p>To validate the installation run the following command:</p>
 </div>
 <div class="listingblock console-input">
 <div class="content">
@@ -1027,7 +1320,7 @@ spec:
 </div>
 </div>
 <div class="paragraph">
-<p>After 30 seconds or so, run <code>top</code> command to inspect the resources usage:</p>
+<p>After 30 seconds or so, run the <code>top</code> command to inspect the resource usage:</p>
 </div>
 <div class="listingblock console-input">
 <div class="content">
@@ -1036,13 +1329,12 @@ spec:
 </div>
 <div class="listingblock console-output">
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">W1224 09:32:34.477999   14209 top_pod.go:140] Using json format to get metrics. Next release will switch to protocol-buffers, switch early by passing --use-protocol-buffers flag
-NAME                                  CPU(cores)   MEMORY(bytes)
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">NAME                                  CPU(cores)   MEMORY(bytes)
 my-auto-deployment-858b7f8944-pt2f9   291m         1Mi</code></pre>
 </div>
 </div>
 <div class="paragraph">
-<p>Then you can get the status of the Virtual Pod Autoscaler by running the following command:</p>
+<p>Then you can get the status of the Vertical Pod Autoscaler by running the following command:</p>
 </div>
 <div class="listingblock console-input">
 <div class="content">
@@ -1056,7 +1348,7 @@ my-vpa   Auto                          49s</code></pre>
 </div>
 </div>
 <div class="paragraph">
-<p>If no values are shown means that there is still not enough data so VPA can calculate a value.
+<p>If no values are shown it means that there is still not enough data for the VPA to calculate a value.
 Repeat the command until you see a value:</p>
 </div>
 <div class="listingblock console-input">
@@ -1071,7 +1363,7 @@ my-vpa   Auto   716m   262144k   True       65s</code></pre>
 </div>
 </div>
 <div class="paragraph">
-<p>When a new value is assigned, an automatic rolling update of the containers are executed:</p>
+<p>When a new value is assigned, an automatic rolling update of the containers is executed:</p>
 </div>
 <div class="listingblock console-input">
 <div class="content">
@@ -1087,7 +1379,7 @@ my-auto-deployment-858b7f8944-qjfgs   1/1     Terminating   0          2m13s</co
 </div>
 </div>
 <div class="paragraph">
-<p>Finally, describing the new Pod shows the nre request values:</p>
+<p>Finally, describing the new Pod shows the new request values:</p>
 </div>
 <div class="listingblock console-input">
 <div class="content">
@@ -1098,17 +1390,7 @@ my-auto-deployment-858b7f8944-qjfgs   1/1     Terminating   0          2m13s</co
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-yaml hljs" data-lang="yaml">Annotations:  k8s.v1.cni.cncf.io/network-status:
                 [{
-                    "name": "openshift-sdn",
-                    "interface": "eth0",
-                    "ips": [
-                        "10.130.1.23"
-                    ],
-                    "default": true,
-                    "dns": {}
-                }]
-              k8s.v1.cni.cncf.io/networks-status:
-                [{
-                    "name": "openshift-sdn",
+                    "name": "ovn-kubernetes",
                     "interface": "eth0",
                     "ips": [
                         "10.130.1.23"
@@ -1136,7 +1418,7 @@ Containers:
       -c
       while true; do timeout 0.5s yes &gt;/dev/null; sleep 0.5s; done
     State:          Running
-      Started:      Fri, 24 Dec 2021 09:33:21 +0100
+      Started:      Sun, 21 Sep 2026 09:33:21 +0200
     Ready:          True
     Restart Count:  0
     Requests:
@@ -1164,13 +1446,10 @@ Containers:
 </div>
 <div class="sect2">
 <h3 id="_clean_up_7"><a class="anchor" href="#_clean_up_7"></a>Clean Up</h3>
-<div class="paragraph">
-<p>Run the following command to undeploy current namespace:</p>
-</div>
 <div class="listingblock console-input">
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">kubectl delete all --all
-kubectl delete -f apps/kubefiles/my-vpa.yaml</code></pre>
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">kubectl delete -f apps/kubefiles/my-vpa.yaml
+kubectl delete -f apps/kubefiles/my-auto-deployment.yaml</code></pre>
 </div>
 </div>
 </div>
