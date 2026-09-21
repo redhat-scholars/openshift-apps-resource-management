@@ -44,7 +44,7 @@ REPO_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 KUBEFILES="$REPO_ROOT/apps/kubefiles"
 
 # ----------------------------------------------------------------------------- output
-if [ -t 1 ]; then
+if [ -t 2 ]; then
   B=$'\e[1m'; R=$'\e[31m'; G=$'\e[32m'; Y=$'\e[33m'; C=$'\e[36m'; Z=$'\e[0m'
 else
   B=''; R=''; G=''; Y=''; C=''; Z=''
@@ -53,22 +53,27 @@ fi
 FAILURES=()
 CURRENT_STEP=""
 
-banner()  { printf '\n%s┌─ %s %s\n' "$B$C" "$*" "$Z"; }
-say()     { printf '%s│%s %s\n' "$C" "$Z" "$*"; }
-note()    { printf '%s│%s %s%s%s\n' "$C" "$Z" "$Y" "$*" "$Z"; }
-ok()      { printf '%s│%s %sPASS%s %s\n' "$C" "$Z" "$G" "$Z" "$*"; }
-bad()     { printf '%s│%s %sFAIL%s %s\n' "$C" "$Z" "$R" "$Z" "$*"; FAILURES+=("[$CURRENT_STEP] $*"); }
+# Every diagnostic goes to stderr. `run` is used inside pipelines such as
+# `run oc process ... | oc apply -f -`, and anything it printed on stdout would
+# be piped into the next command — oc then chokes on the ANSI escapes with
+# "error converting YAML to JSON: yaml: control characters are not allowed".
+banner()  { printf '\n%s┌─ %s %s\n' "$B$C" "$*" "$Z" >&2; }
+say()     { printf '%s│%s %s\n' "$C" "$Z" "$*" >&2; }
+note()    { printf '%s│%s %s%s%s\n' "$C" "$Z" "$Y" "$*" "$Z" >&2; }
+ok()      { printf '%s│%s %sPASS%s %s\n' "$C" "$Z" "$G" "$Z" "$*" >&2; }
+bad()     { printf '%s│%s %sFAIL%s %s\n' "$C" "$Z" "$R" "$Z" "$*" >&2; FAILURES+=("[$CURRENT_STEP] $*"); }
+echo_cmd() { printf '%s│%s %s$ %s%s\n' "$C" "$Z" "$B" "$*" "$Z" >&2; }
 
 # run <description> -- prints the command as a student would type it, then runs it
 run() {
-  printf '%s│%s %s$ %s%s\n' "$C" "$Z" "$B" "$*" "$Z"
+  echo_cmd "$@"
   "$@"
 }
 
 # must <label> <command...> -- prints, runs, and aborts the step if it fails
 must() {
   local label=$1; shift
-  printf '%s│%s %s$ %s%s\n' "$C" "$Z" "$B" "$*" "$Z"
+  echo_cmd "$@"
   if "$@"; then ok "$label"; return 0; fi
   bad "$label"
   return 1
@@ -1083,7 +1088,7 @@ fi
 export NAMESPACE
 
 START=$SECONDS
-printf '%s%s Efficient Resource Management — rehearsal %s\n' "$B$C" "═══" "$Z"
+printf '%s%s Efficient Resource Management — rehearsal %s\n' "$B$C" "═══" "$Z" >&2
 say "project      $NAMESPACE"
 say "workdir      $WORKDIR"
 say "image mode   $IMAGE_MODE$( [[ $IMAGE_MODE == quay ]] && echo " (${REGISTRY}/${REGISTRY_ORG}/${IMAGE_NAME})" )"
@@ -1102,11 +1107,11 @@ done
 
 CURRENT_STEP=""
 ELAPSED=$((SECONDS-START))
-printf '\n%s%s summary %s\n' "$B$C" "═══" "$Z"
-printf 'elapsed: %dm%02ds\n' $((ELAPSED/60)) $((ELAPSED%60))
+printf '\n%s%s summary %s\n' "$B$C" "═══" "$Z" >&2
+printf 'elapsed: %dm%02ds\n' $((ELAPSED/60)) $((ELAPSED%60)) >&2
 if (( ${#FAILURES[@]} )); then
-  printf '%s%d check(s) failed:%s\n' "$R$B" "${#FAILURES[@]}" "$Z"
-  printf '  %s\n' "${FAILURES[@]}"
+  printf '%s%d check(s) failed:%s\n' "$R$B" "${#FAILURES[@]}" "$Z" >&2
+  printf '  %s\n' "${FAILURES[@]}" >&2
   exit 1
 fi
-printf '%sall checks passed%s\n' "$G$B" "$Z"
+printf '%sall checks passed%s\n' "$G$B" "$Z" >&2
