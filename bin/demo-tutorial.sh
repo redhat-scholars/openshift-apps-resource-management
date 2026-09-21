@@ -18,23 +18,28 @@
 #   NAMESPACE        target project              (default: current oc project)
 #   WORKDIR          scratch directory           (default: /tmp/rm-tutorial-demo)
 #   QUARKUS_VERSION  platform version            (default: 3.39.4)
-#   IMAGE_MODE       openshift | quay            (default: openshift)
+#   IMAGE_MODE       quay | openshift            (default: quay)
 #   REGISTRY         registry for IMAGE_MODE=quay(default: quay.io)
-#   REGISTRY_ORG     organisation                (default: myrepo)
+#   REGISTRY_ORG     organisation                (default: your registry login)
 #   IMAGE_NAME       image name                  (default: greeting-app)
 #   PG_VERSION       postgresql imagestream tag  (default: 15-el9)
 #   SKIP_SLOW        1 = skip the OOMKill wait   (default: 0)
 #
-# IMAGE_MODE=openshift builds the image with an on-cluster binary build and needs
-# no registry credentials — use it to rehearse. IMAGE_MODE=quay is the path the
-# documentation describes; run `podman login quay.io` first.
+# IMAGE_MODE=quay is the default because it is the path the documentation describes —
+# Jib builds the image locally and pushes it to quay.io. Run `podman login quay.io`
+# first. IMAGE_MODE=openshift instead runs an on-cluster binary build and needs no
+# registry credentials; use it when you cannot log in to a registry.
+#
+# Jib does not need podman running. It pushes to the registry over HTTPS itself, so
+# neither the podman socket nor DOCKER_HOST plays any part — only the credentials
+# `podman login` wrote. The script points DOCKER_CONFIG at them; see setup_registry_auth.
 #
 set -Eeuo pipefail
 
 QUARKUS_VERSION=${QUARKUS_VERSION:-3.39.4}
 WORKDIR=${WORKDIR:-/tmp/rm-tutorial-demo}
 APP_DIR="$WORKDIR/tutorial-app"
-IMAGE_MODE=${IMAGE_MODE:-openshift}
+IMAGE_MODE=${IMAGE_MODE:-quay}
 REGISTRY=${REGISTRY:-quay.io}
 REGISTRY_ORG=${REGISTRY_ORG:-myrepo}
 IMAGE_NAME=${IMAGE_NAME:-greeting-app}
@@ -223,18 +228,66 @@ step_preflight() {
     note "no compute-deploy quota — the quota-based PromQL queries will need adjusting"
   fi
 
+  mkdir -p "$WORKDIR"
+
+  # Registry auth is already resolved before the first step runs; just report it here.
   if [[ "$IMAGE_MODE" == "quay" ]]; then
-    if grep -q "$REGISTRY" "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/containers/auth.json" 2>/dev/null \
-       || grep -q "$REGISTRY" "$HOME/.docker/config.json" 2>/dev/null; then
-      ok "credentials found for $REGISTRY"
-    else
-      die "IMAGE_MODE=quay but no credentials for $REGISTRY — run 'podman login $REGISTRY'"
-    fi
+    ok "pushing to ${REGISTRY}/${REGISTRY_ORG}/${IMAGE_NAME}"
   else
     note "IMAGE_MODE=openshift — image is built on the cluster, no registry login needed"
   fi
+}
 
-  mkdir -p "$WORKDIR"
+# Jib pushes straight to the registry over HTTPS; it is daemonless and never touches the
+# podman socket, so DOCKER_HOST is irrelevant here. What it does need is credentials, and
+# it only looks in $DOCKER_CONFIG/config.json, ~/.docker/config.json, or credential
+# helpers. `podman login` instead writes $XDG_RUNTIME_DIR/containers/auth.json — same
+# schema, a filename Jib never looks for. Point DOCKER_CONFIG at a directory where that
+# file is called config.json and Jib picks it up unchanged.
+setup_registry_auth() {
+  local podman_auth="${REGISTRY_AUTH_FILE:-${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/containers/auth.json}"
+
+  if grep -q "$REGISTRY" "$HOME/.docker/config.json" 2>/dev/null; then
+    ok "credentials for $REGISTRY found in ~/.docker/config.json"
+  elif grep -q "$REGISTRY" "$podman_auth" 2>/dev/null; then
+    mkdir -p "$WORKDIR/.docker"
+    ln -sf "$podman_auth" "$WORKDIR/.docker/config.json"
+    export DOCKER_CONFIG="$WORKDIR/.docker"
+    ok "credentials for $REGISTRY found in $podman_auth"
+    say "exported DOCKER_CONFIG=$DOCKER_CONFIG so Jib can read podman's auth.json"
+  else
+    die "IMAGE_MODE=quay but no credentials for $REGISTRY — run 'podman login $REGISTRY'"
+  fi
+
+  # 'myrepo' is the placeholder openshift.adoc tells the student to replace. Left as is it
+  # would push to a repository the user does not own, so resolve it from the actual login.
+  if [[ "$REGISTRY_ORG" == "myrepo" ]]; then
+    local user
+    user=$(jq -r --arg r "$REGISTRY" '.auths[$r].auth // empty' "$podman_auth" 2>/dev/null \
+             | base64 -d 2>/dev/null | cut -d: -f1)
+    [[ -n "$user" ]] || die "REGISTRY_ORG is still the docs placeholder 'myrepo' — set it to your $REGISTRY organisation"
+    REGISTRY_ORG=$user
+    note "REGISTRY_ORG was the docs placeholder 'myrepo' — using '$REGISTRY_ORG' from your $REGISTRY login"
+  fi
+}
+
+# A freshly created quay.io repository is private, and the cluster pulls anonymously unless
+# a pull secret is linked — the failure then looks like an unrelated ImagePullBackOff.
+check_image_pullable() {
+  local repo="$REGISTRY_ORG/$IMAGE_NAME" token code
+  [[ "$REGISTRY" == "quay.io" ]] || return 0
+  token=$(curl -s "https://quay.io/v2/auth?service=quay.io&scope=repository:${repo}:pull" | jq -r '.token // empty')
+  code=$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $token" \
+    -H 'Accept: application/vnd.oci.image.manifest.v1+json,application/vnd.docker.distribution.manifest.v2+json' \
+    "https://quay.io/v2/${repo}/manifests/1.0-SNAPSHOT")
+  if [[ "$code" == "200" ]]; then
+    ok "quay.io/$repo is publicly pullable — no pull secret needed"
+  else
+    bad "quay.io/$repo is not anonymously pullable (HTTP $code) — the rollout will fail with ImagePullBackOff"
+    note "make the repository public on quay.io, or link a pull secret:"
+    note "  oc create secret docker-registry quay --docker-server=$REGISTRY --docker-username=$REGISTRY_ORG --docker-password=<token>"
+    note "  oc secrets link default quay --for=pull"
+  fi
 }
 
 # =============================================================================== 2
@@ -723,8 +776,8 @@ PROPS
     # step does not resurrect a quay.io image reference the cluster cannot pull.
     sed -i '/^quarkus\.container-image\.\(registry\|group\|name\)=/d' "$res/application.properties"
     note "IMAGE_MODE=openshift: leaving container-image.registry/group/name unset so the"
-    note "Deployment resolves to the internal registry. Use IMAGE_MODE=quay to rehearse"
-    note "the path openshift.adoc actually documents."
+    note "Deployment resolves to the internal registry. This is the fallback — drop the"
+    note "variable to rehearse the Jib + quay.io path openshift.adoc actually documents."
   fi
 
   grep -q "quarkus.openshift.route.expose" "$res/application.properties" || cat >> "$res/application.properties" <<PROPS
@@ -735,6 +788,7 @@ quarkus.openshift.route.tls.insecure-edge-termination-policy=Redirect
 PROPS
 
   build_and_deploy || return 1
+  if [[ "$IMAGE_MODE" == "quay" ]]; then check_image_pullable; fi
   wait_rollout || return 1
 
   banner "Everything is named after the application, not after the image"
@@ -1205,6 +1259,10 @@ fi
 export NAMESPACE
 
 START=$SECONDS
+# Resolved here rather than inside preflight: '--only 8' skips preflight, and without
+# DOCKER_CONFIG the Jib push fails on credentials that are in fact present.
+if [[ "$IMAGE_MODE" == "quay" ]]; then mkdir -p "$WORKDIR"; setup_registry_auth; fi
+
 printf '%s%s Efficient Resource Management — rehearsal %s\n' "$B$C" "═══" "$Z" >&2
 say "project      $NAMESPACE"
 say "workdir      $WORKDIR"
