@@ -201,6 +201,42 @@ STEP_DESC=(
 )
 
 # =============================================================================== 1
+# Lints the .adoc sources for things that break a student's copy-and-paste but that this
+# script can never hit, because it runs commands itself rather than pasting them.
+#
+# Both checks come from a live session that failed where every rehearsal had passed:
+# starter.adoc ended a continuation line with `\ # <1>`. Asciidoctor eats the `#` and hides
+# the callout, so the clipboard gets a trailing `\ ` — an escaped space, not a line
+# continuation. mvn then ran with no -D arguments, every following line ran as its own
+# command, no tutorial-app was created, and so ./mvnw did not exist either.
+lint_docs() {
+  local pages="$REPO_ROOT/documentation/modules/ROOT"
+
+  # A backslash must be the last character on its line, or it does not continue anything.
+  local bad_cont
+  bad_cont=$(grep -rnE --include='*.adoc' \
+    '\\[[:space:]]+$|\\[[:space:]]*(#|//)[[:space:]]*<[0-9]+>' "$pages" || true)
+  if [[ -n "$bad_cont" ]]; then
+    bad "a line continuation in the docs is followed by whitespace or a callout"
+    note "the clipboard gets '\\ ' and the command silently loses every later line:"
+    echo "$bad_cont" | sed 's/^/    /' >&2
+  else
+    ok "every backslash continuation in the docs ends flush with the backslash"
+  fi
+
+  # The wrapper only exists inside the generated project, and this script cd's there on the
+  # student's behalf — so only a doc check can catch the missing instruction.
+  local first_cd first_mvnw
+  first_cd=$(grep -n '^cd tutorial-app$' "$pages/pages/starter.adoc" | head -1 | cut -d: -f1)
+  first_mvnw=$(grep -n '\./mvnw' "$pages/pages/starter.adoc" | head -1 | cut -d: -f1)
+  if [[ -n "$first_cd" && -n "$first_mvnw" && "$first_cd" -lt "$first_mvnw" ]]; then
+    ok "starter.adoc tells the student to cd into tutorial-app before the first ./mvnw"
+  else
+    bad "starter.adoc uses ./mvnw without a 'cd tutorial-app' before it — the wrapper is"
+    bad "  generated inside the project, so the student's ./mvnw is not found"
+  fi
+}
+
 step_preflight() {
   local missing=()
   for t in oc kubectl mvn java jq hey podman; do
@@ -242,6 +278,9 @@ step_preflight() {
   else
     note "no compute-deploy quota — the quota-based PromQL queries will need adjusting"
   fi
+
+  banner "Copy-and-paste hazards in the documentation"
+  lint_docs
 
   mkdir -p "$WORKDIR"
 
@@ -319,6 +358,9 @@ step_bootstrap() {
       -Dpath="messages" )
 
   check "project generated" test -f "$APP_DIR/pom.xml"
+  # starter.adoc promises this wrapper and every later step invokes it. It is created
+  # inside tutorial-app, which is why the chapter has to send the student in there first.
+  check "./mvnw wrapper generated inside tutorial-app" test -x "$APP_DIR/mvnw"
   expect "endpoint is mapped to /messages" '@Path("/messages")' \
     "$(cat "$APP_DIR/src/main/java/com/redhat/developers/GreetingResource.java")"
   expect "generated greeting is the Quarkus REST one" 'Hello from Quarkus REST' \

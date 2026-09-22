@@ -7,15 +7,16 @@ The easiest way to create a new Quarkus project is to open a terminal and run th
 [.console-input]
 [source,bash,subs="+macros,+attributes"]
 ----
-mvn "io.quarkus.platform:quarkus-maven-plugin:3.39.4:create" \ # <1>
--DprojectGroupId="com.redhat.developers" \
--DprojectArtifactId="tutorial-app" \
--DprojectVersion="1.0-SNAPSHOT" \
--DclassName="GreetingResource" \
--Dpath="messages"
+mvn "io.quarkus.platform:quarkus-maven-plugin:3.39.4:create" \
+  -DprojectGroupId="com.redhat.developers" \
+  -DprojectArtifactId="tutorial-app" \
+  -DprojectVersion="1.0-SNAPSHOT" \
+  -DclassName="GreetingResource" \
+  -Dpath="messages"
 ----
-<1> Quarkus 3 publishes the plugin under the `io.quarkus.platform` group id. Pinning the version keeps
-    every student on the same platform BOM; drop `:3.39.4` to always get the latest release.
+
+Quarkus 3 publishes the plugin under the `io.quarkus.platform` group id. Pinning the version keeps
+every student on the same platform BOM; drop `:3.39.4` to always get the latest release.
 
 If you are a Windows user, simply inline the command:
 
@@ -25,7 +26,21 @@ If you are a Windows user, simply inline the command:
 mvn "io.quarkus.platform:quarkus-maven-plugin:3.39.4:create" -DprojectGroupId="com.redhat.developers" -DprojectArtifactId="tutorial-app" -DprojectVersion="1.0-SNAPSHOT" -DclassName="GreetingResource" -Dpath="messages"
 ----
 
-The generated project contains an endpoint `GreetingResource` served at `/messages`. You can customize the extensions that your project will use by running:
+This creates a `tutorial-app` directory next to where you ran the command. Every command from
+here to the end of the tutorial is run *from inside that directory*, so change into it now:
+
+[.console-input]
+[source,bash,subs="+macros,+attributes"]
+----
+cd tutorial-app
+----
+
+The generated project contains an endpoint `GreetingResource` served at `/messages`, along with
+a `./mvnw` Maven wrapper — that wrapper is what the rest of the tutorial calls, and it only
+exists inside `tutorial-app`. If `./mvnw` reports `No such file or directory`, you are in the
+wrong directory.
+
+You can customize the extensions that your project will use by running:
 [.console-input]
 [source,bash,subs="+macros,+attributes"]
 ----
