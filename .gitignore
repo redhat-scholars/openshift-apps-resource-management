@@ -41,3 +41,6 @@ package*
 node_modules
 .firebaserc
 .firebase
+
+# Scratch scaffolds from running the tutorial inside the repo checkout
+/app/
