@@ -123,22 +123,17 @@
 </div>
 <div class="listingblock console-input">
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">mvn "io.quarkus.platform:quarkus-maven-plugin:3.39.4:create" \ <i class="conum" data-value="1"></i><b>(1)</b>
--DprojectGroupId="com.redhat.developers" \
--DprojectArtifactId="tutorial-app" \
--DprojectVersion="1.0-SNAPSHOT" \
--DclassName="GreetingResource" \
--Dpath="messages"</code></pre>
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">mvn "io.quarkus.platform:quarkus-maven-plugin:3.39.4:create" \
+  -DprojectGroupId="com.redhat.developers" \
+  -DprojectArtifactId="tutorial-app" \
+  -DprojectVersion="1.0-SNAPSHOT" \
+  -DclassName="GreetingResource" \
+  -Dpath="messages"</code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Quarkus 3 publishes the plugin under the <code>io.quarkus.platform</code> group id. Pinning the version keeps
-every student on the same platform BOM; drop <code>:3.39.4</code> to always get the latest release.</td>
-</tr>
-</table>
+<div class="paragraph">
+<p>Quarkus 3 publishes the plugin under the <code>io.quarkus.platform</code> group id. Pinning the version keeps
+every student on the same platform BOM; drop <code>:3.39.4</code> to always get the latest release.</p>
 </div>
 <div class="paragraph">
 <p>If you are a Windows user, simply inline the command:</p>
@@ -149,7 +144,22 @@ every student on the same platform BOM; drop <code>:3.39.4</code> to always get 
 </div>
 </div>
 <div class="paragraph">
-<p>The generated project contains an endpoint <code>GreetingResource</code> served at <code>/messages</code>. You can customize the extensions that your project will use by running:</p>
+<p>This creates a <code>tutorial-app</code> directory next to where you ran the command. Every command from
+here to the end of the tutorial is run <strong>from inside that directory</strong>, so change into it now:</p>
+</div>
+<div class="listingblock console-input">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">cd tutorial-app</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The generated project contains an endpoint <code>GreetingResource</code> served at <code>/messages</code>, along with
+a <code>./mvnw</code> Maven wrapper — that wrapper is what the rest of the tutorial calls, and it only
+exists inside <code>tutorial-app</code>. If <code>./mvnw</code> reports <code>No such file or directory</code>, you are in the
+wrong directory.</p>
+</div>
+<div class="paragraph">
+<p>You can customize the extensions that your project will use by running:</p>
 </div>
 <div class="listingblock console-input">
 <div class="content">
